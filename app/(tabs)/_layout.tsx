@@ -44,6 +44,7 @@ export default function TabLayout() {
         options={{
           title: 'Feed',
           tabBarLabel: 'Feed',
+          headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'film' : 'film-outline'}

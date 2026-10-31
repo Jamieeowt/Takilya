@@ -16,7 +16,7 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set) => ({
   activeVideoId: null,
-  isVideoMuted: false,
+  isVideoMuted: true,
   userRole: 'user',
 
   setActiveVideoId: (id) => set({ activeVideoId: id }),
