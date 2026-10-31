@@ -31,6 +31,9 @@ import { usePeople } from '@/features/people/usePeople';
 import { PeopleRail } from '@/components/people';
 import { useStudios } from '@/features/studios/useStudios';
 import { StudiosRail } from '@/components/studios';
+import { useAwardBodies, useMMFFSeason } from '@/features/awards/useAwards';
+import { AwardsRail, MMFFSeasonWidget } from '@/components/awards';
+
 
 
 export default function ExploreScreen() {
@@ -110,6 +113,16 @@ export default function ExploreScreen() {
     refetch: refetchStudios,
   } = useStudios();
 
+  const {
+    data: awardBodies = [],
+    refetch: refetchAwardBodies,
+  } = useAwardBodies('all');
+
+  const {
+    data: mmffSeason,
+    refetch: refetchMMFFSeason,
+  } = useMMFFSeason();
+
   const handleRefresh = () => {
     if (isFiltering) {
       void refetchFiltered();
@@ -118,6 +131,8 @@ export default function ExploreScreen() {
       void refetchFestivals();
       void refetchPeople();
       void refetchStudios();
+      void refetchAwardBodies();
+      void refetchMMFFSeason();
     }
   };
 
@@ -199,8 +214,14 @@ export default function ExploreScreen() {
           {/* Section 1: Featured Today (Promoted or Editorial Hero Card) */}
           <FeaturedHeroCard hero={sectionsData.featured} />
 
+          {/* Section: MMFF Seasonal Showcase Widget */}
+          {mmffSeason && <MMFFSeasonWidget seasonData={mmffSeason} />}
+
           {/* Section: Philippine Film Festivals Database Rail */}
           <FestivalsRail festivals={festivals} />
+
+          {/* Section: Awards & Recognitions Database Rail */}
+          <AwardsRail awardBodies={awardBodies} />
 
           {/* Section: Directors & Actors Database Rail */}
           <PeopleRail people={people} />

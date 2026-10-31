@@ -166,6 +166,12 @@ function RootNavigationLayout() {
           }}
         />
         <Stack.Screen
+          name="awards/index"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
           name="settings"
           options={{
             presentation: 'modal',
