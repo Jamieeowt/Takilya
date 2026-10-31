@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
 import { supabase } from '@/lib/supabase';
 import { AuthContextValue, Profile } from './types';
 import { UserRole } from '@/features/films/types';
@@ -12,24 +13,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch or refresh the user's profile from the database
-  const fetchProfile = async (userId: string) => {
+  // Fetch or refresh user's profile from profiles table
+  const fetchProfile = async (userId: string, currentUser?: User | null) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
-      if (error) {
+      if (error || !data) {
         // Fallback: construct safe default user profile from auth user metadata
-        if (user) {
+        const activeUser = currentUser || user;
+        if (activeUser) {
           const fallbackProfile: Profile = {
             id: userId,
-            username: user.user_metadata?.username || `user_${userId.slice(0, 8)}`,
-            display_name: user.user_metadata?.display_name || 'Cinephile',
-            avatar_url: user.user_metadata?.avatar_url || null,
-            bio: user.user_metadata?.bio || null,
+            username: activeUser.user_metadata?.username || `user_${userId.slice(0, 8)}`,
+            display_name: activeUser.user_metadata?.display_name || activeUser.user_metadata?.full_name || 'Cinephile',
+            avatar_url: activeUser.user_metadata?.avatar_url || null,
+            bio: activeUser.user_metadata?.bio || null,
             role: 'user',
             verification_status: 'unverified',
             created_at: new Date().toISOString(),
@@ -46,10 +48,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Helper to handle incoming deep links (e.g. from GitHub email confirmation: takilya://)
+  const handleDeepLinkUrl = async (url: string | null) => {
+    if (!url) return;
+
+    try {
+      // 1. Check for token in hash fragment (#access_token=...&refresh_token=...)
+      if (url.includes('#')) {
+        const hash = url.split('#')[1];
+        const params = new URLSearchParams(hash);
+        const access_token = params.get('access_token');
+        const refresh_token = params.get('refresh_token');
+
+        if (access_token && refresh_token) {
+          const { data, error } = await supabase.auth.setSession({
+            access_token,
+            refresh_token,
+          });
+          if (!error && data.session) {
+            setSession(data.session);
+            setUser(data.session.user);
+            await fetchProfile(data.session.user.id, data.session.user);
+            return;
+          }
+        }
+      }
+
+      // 2. Check for PKCE code in query (?code=...)
+      if (url.includes('code=')) {
+        const query = url.split('?')[1] || '';
+        const params = new URLSearchParams(query);
+        const code = params.get('code');
+
+        if (code) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (!error && data.session) {
+            setSession(data.session);
+            setUser(data.session.user);
+            await fetchProfile(data.session.user.id, data.session.user);
+            return;
+          }
+        }
+      }
+
+      // 3. User returned from GitHub confirmation page (takilya://) -> re-verify active session
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (currentSession) {
+        setSession(currentSession);
+        setUser(currentSession.user);
+        await fetchProfile(currentSession.user.id, currentSession.user);
+      }
+    } catch (err) {
+      console.warn('[Takilya Auth] Deep link session exchange error:', err);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Get initial session from expo-secure-store via Supabase
+    // 1. Get initial session from secure store
     supabase.auth
       .getSession()
       .then(({ data: { session } }) => {
@@ -57,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          fetchProfile(session.user.id);
+          void fetchProfile(session.user.id, session.user);
         }
       })
       .catch((err) => {
@@ -78,23 +135,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(newSession?.user ?? null);
 
       if (newSession?.user) {
-        await fetchProfile(newSession.user.id);
+        await fetchProfile(newSession.user.id, newSession.user);
       } else {
         setProfile(null);
       }
       setIsLoading(false);
     });
 
+    // 3. Listen to incoming deep links (takilya://)
+    Linking.getInitialURL()
+      .then((initialUrl) => {
+        if (initialUrl && isMounted) {
+          void handleDeepLinkUrl(initialUrl);
+        }
+      })
+      .catch(() => {});
+
+    const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
+      if (isMounted) {
+        void handleDeepLinkUrl(url);
+      }
+    });
+
     return () => {
       isMounted = false;
       subscription.unsubscribe();
+      linkingSubscription.remove();
     };
   }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
@@ -102,9 +175,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) {
         return { error: error.message };
       }
+
+      if (data?.session) {
+        setSession(data.session);
+        setUser(data.session.user);
+        await fetchProfile(data.session.user.id, data.session.user);
+      }
+
       return { error: null };
     } catch (err: any) {
-      return { error: err.message || 'An unexpected error occurred during login.' };
+      return { error: err?.message || 'An unexpected error occurred during login. Please try again.' };
     } finally {
       setIsLoading(false);
     }
@@ -122,6 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: email.trim(),
         password,
         options: {
+          emailRedirectTo: 'https://jamieeowt.github.io/takilya-confirmed/',
           data: {
             username: username.trim().toLowerCase(),
             display_name: displayName.trim(),
@@ -133,7 +214,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: error.message };
       }
 
-      // If user was created, ensure profile exists (trigger fallback)
+      // If user was created, insert fallback profile in case trigger hasn't fired yet
       if (data?.user) {
         try {
           await supabase.from('profiles').upsert(
@@ -147,13 +228,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             { onConflict: 'id' }
           );
         } catch {
-          // If trigger already handled it, ignore conflict
+          // Ignore if handled by database trigger
         }
       }
 
       return { error: null };
     } catch (err: any) {
-      return { error: err.message || 'An unexpected error occurred during sign up.' };
+      return { error: err?.message || 'An unexpected error occurred during sign up. Please try again.' };
     } finally {
       setIsLoading(false);
     }
@@ -171,7 +252,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return { error: null };
     } catch (err: any) {
-      return { error: err.message || 'Error signing out.' };
+      return { error: err?.message || 'Error signing out. Please try again.' };
     } finally {
       setIsLoading(false);
     }
@@ -181,7 +262,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: 'takilya://auth/reset-password',
+        redirectTo: 'https://jamieeowt.github.io/takilya-confirmed/',
       });
 
       if (error) {
@@ -189,7 +270,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return { error: null };
     } catch (err: any) {
-      return { error: err.message || 'Error sending password reset email.' };
+      return { error: err?.message || 'Error sending password reset email. Please try again.' };
     } finally {
       setIsLoading(false);
     }
@@ -197,7 +278,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchProfile(user.id);
+      await fetchProfile(user.id, user);
+    }
+  };
+
+  const refreshSession = async () => {
+    try {
+      const { data: { session: refreshedSession } } = await supabase.auth.getSession();
+      if (refreshedSession) {
+        setSession(refreshedSession);
+        setUser(refreshedSession.user);
+        await fetchProfile(refreshedSession.user.id, refreshedSession.user);
+      }
+    } catch (err) {
+      console.warn('[Takilya Auth] refreshSession error:', err);
     }
   };
 
@@ -214,6 +308,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signOut,
       resetPassword,
       refreshProfile,
+      refreshSession,
     }),
     [session, user, profile, isLoading]
   );
@@ -221,9 +316,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-/**
- * Access the core Auth context
- */
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
@@ -232,9 +324,6 @@ export function useAuth() {
   return context;
 }
 
-/**
- * Hook to access current session, user & authentication state
- */
 export function useSession() {
   const { session, user, isLoading, isAuthenticated } = useAuth();
   return {
@@ -245,10 +334,6 @@ export function useSession() {
   };
 }
 
-/**
- * Role-aware helper returning the active user role ('user', 'critic', 'verified_official', 'admin')
- * along with convenient predicate flags.
- */
 export function useRole(): {
   role: UserRole;
   isUser: boolean;
@@ -265,4 +350,3 @@ export function useRole(): {
     isAdmin: role === 'admin',
   };
 }
-

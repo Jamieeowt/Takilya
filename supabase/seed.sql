@@ -200,8 +200,9 @@ insert into public.trailers (id, film_id, youtube_id, title, type, posted_by_typ
 values
   ('20202020-0001-0000-0000-000000000000', 'cccccccc-0001-0000-0000-000000000000', 'L_LUpnjgPso', 'Himala 4K Restored Official Heritage Trailer', 'official', 'admin', '11111111-1111-1111-1111-111111111111', 45000),
   ('20202020-0002-0000-0000-000000000000', 'cccccccc-0003-0000-0000-000000000000', '7lMwbA9bUVo', 'Leonor Will Never Die Official Sundance US Trailer', 'official', 'studio', '44444444-4444-4444-4444-444444444444', 38200),
-  ('20202020-0003-0000-0000-000000000000', 'cccccccc-0004-0000-0000-000000000000', 'dQw4w9WgXcQ', 'John Denver Trending Cinemalaya Official Clip', 'clip', 'festival', 'dddddddd-0001-0000-0000-000000000000', 19800),
-  ('20202020-0004-0000-0000-000000000000', 'cccccccc-0005-0000-0000-000000000000', 'kJQP7kiw5Fk', 'Cleaners QCinema Coming-of-Age Trailer', 'official', 'admin', '11111111-1111-1111-1111-111111111111', 28500)
+  ('20202020-0003-0000-0000-000000000000', 'cccccccc-0004-0000-0000-000000000000', '8b1T8k5qP8A', 'John Denver Trending Cinemalaya Official Clip', 'clip', 'festival', 'dddddddd-0001-0000-0000-000000000000', 19800),
+  ('20202020-0004-0000-0000-000000000000', 'cccccccc-0005-0000-0000-000000000000', 'kJQP7kiw5Fk', 'Cleaners QCinema Coming-of-Age Trailer', 'official', 'admin', '11111111-1111-1111-1111-111111111111', 28500),
+  ('20202020-0005-0000-0000-000000000000', 'cccccccc-0002-0000-0000-000000000000', 'vP88v2B4a_A', 'Maynila sa mga Kuko ng Liwanag World Cinema Project Teaser', 'official', 'admin', '11111111-1111-1111-1111-111111111111', 32400)
 on conflict do nothing;
 
 -- 11. Promoted Slots (clearly marked)

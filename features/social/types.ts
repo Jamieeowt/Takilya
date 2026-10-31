@@ -1,4 +1,6 @@
-import { UserRole } from '@/features/films/types';
+import { FollowTargetType, UserRole } from '@/features/films/types';
+
+export type { FollowTargetType };
 
 export type ActivityType = 'logged' | 'rated' | 'reviewed' | 'watchlist' | 'created_list';
 
@@ -71,4 +73,43 @@ export interface CuratedListDraft {
     poster_url?: string | null;
   }[];
 }
+
+// ==============================================================================
+// POLYMORPHIC FOLLOW TYPES (Phase 3: Prompt 3.1)
+// ==============================================================================
+
+export type FollowFilterType = 'all' | 'festival' | 'studio' | 'person' | 'user';
+
+export interface FollowEntity {
+  id: string; // target id or follower id
+  target_type: FollowTargetType;
+  name: string;
+  handle?: string; // username (@cinephile) or slug (cinemalaya)
+  avatar_url?: string | null;
+  subtitle?: string; // description, location, or role designation
+  is_verified?: boolean;
+  role?: UserRole;
+  is_following?: boolean;
+  followers_count?: number;
+  created_at?: string;
+}
+
+export interface FollowCounts {
+  followers: number;
+  following: {
+    festivals: number;
+    studios: number;
+    people: number;
+    users: number;
+    total: number;
+  };
+}
+
+export interface ToggleFollowPayload {
+  followerId: string;
+  targetType: FollowTargetType;
+  targetId: string;
+  currentlyFollowing: boolean;
+}
+
 

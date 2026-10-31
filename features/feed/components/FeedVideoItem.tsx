@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,7 @@ import { colors, spacing, radius, typography } from '@/lib/theme';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { PromotedPill } from '@/components/ui/PromotedPill';
 import { Chip } from '@/components/ui/Chip';
+import { extractYouTubeId } from '@/lib/youtube';
 import { FeedTrailerItem } from '../types';
 import { useIncrementTrailerView, useToggleWatchlist } from '../useFeed';
 import { useAuth } from '@/features/auth';
@@ -64,6 +65,18 @@ export function FeedVideoItem({
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(externalIsMuted ?? true);
   const [hasPlayerError, setHasPlayerError] = useState(false);
+
+  // Safely extract the 11-character YouTube video ID (handles raw IDs, watch URLs, youtu.be, embed, shorts)
+  const cleanVideoId = useMemo(
+    () => extractYouTubeId(item.youtube_video_id),
+    [item.youtube_video_id]
+  );
+
+  // Reset player error and ready state when the video changes
+  useEffect(() => {
+    setHasPlayerError(false);
+    setReady(false);
+  }, [cleanVideoId]);
 
   // Social engagement state (Strict Monochrome: White #FFFFFF / Grays)
   const [isLiked, setIsLiked] = useState(Boolean(item.is_liked));
@@ -326,7 +339,7 @@ export function FeedVideoItem({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Open trailer on YouTube"
-                  onPress={() => void Linking.openURL(`https://www.youtube.com/watch?v=${item.youtube_video_id}`)}
+                  onPress={() => void Linking.openURL(`https://www.youtube.com/watch?v=${cleanVideoId}`)}
                   style={styles.openYouTubeBtn}>
                   <Ionicons name="logo-youtube" size={16} color="#FFFFFF" />
                   <Text style={styles.openYouTubeText}>YouTube</Text>
@@ -337,9 +350,9 @@ export function FeedVideoItem({
         ) : Platform.OS === 'web' ? (
           <View style={styles.webEmbedWrapper}>
             <iframe
-              src={`https://www.youtube.com/embed/${item.youtube_video_id}?autoplay=${
+              src={`https://www.youtube.com/embed/${cleanVideoId}?autoplay=${
                 isViewable ? 1 : 0
-              }&mute=${isMuted ? 1 : 0}&controls=0&playsinline=1&modestbranding=1&rel=0&origin=https://www.youtube.com`}
+              }&mute=${isMuted ? 1 : 0}&controls=0&playsinline=1&modestbranding=1&rel=0&enablejsapi=1`}
               style={{
                 width: '100%',
                 height: '100%',
@@ -354,28 +367,44 @@ export function FeedVideoItem({
             <YoutubePlayer
               height={itemHeight}
               width={itemWidth}
-              play={isViewable && isReady}
-              videoId={item.youtube_video_id}
+              play={isViewable && isPlaying}
+              videoId={cleanVideoId}
               mute={isMuted ?? true}
-              onReady={() => setReady(true)}
+              onReady={() => {
+                setReady(true);
+                setHasPlayerError(false);
+              }}
               viewContainerStyle={{ width: itemWidth, height: itemHeight, backgroundColor: '#000000' }}
               webViewStyle={{ backgroundColor: '#000000', opacity: 0.99 }}
               webViewProps={{
                 androidLayerType: 'hardware',
                 mediaPlaybackRequiresUserAction: false,
                 allowsInlineMediaPlayback: true,
-                origin: 'https://www.youtube.com',
-              } as any}
+              }}
               initialPlayerParams={{
                 autoplay: true,
                 preventFullScreen: true,
                 controls: false,
                 modestbranding: true,
                 rel: false,
-              } as any}
+                iv_load_policy: 3,
+                showClosedCaptions: false,
+              }}
               onError={(err: string) => {
-                console.warn('YouTube Player Error:', err);
-                setHasPlayerError(true);
+                console.warn('[Takilya Feed] YouTube Player Error:', err, 'Video ID:', cleanVideoId);
+                // Only flag permanent error for genuine failure
+                if (
+                  err === 'HTML5_error' ||
+                  err === 'video_not_found' ||
+                  err === 'embed_not_allowed' ||
+                  err === 'invalid_parameter' ||
+                  err === '100' ||
+                  err === '101' ||
+                  err === '150' ||
+                  err === '2'
+                ) {
+                  setHasPlayerError(true);
+                }
               }}
             />
           </View>

@@ -11,13 +11,27 @@ import {
   ScrollView,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, typography } from '@/lib/theme';
+import {
+  Film,
+  Mail,
+  Lock,
+  User,
+  AtSign,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  CheckCircle2,
+  ArrowRight,
+} from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { haptics } from '@/lib/haptics';
+import { radius, spacing, typography } from '@/lib/theme';
 import { useAuth } from '@/features/auth/AuthContext';
 import { signupSchema } from '@/features/auth/validation';
 
 export default function SignupScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { signUp, isLoading } = useAuth();
 
   const [username, setUsername] = useState('');
@@ -27,8 +41,9 @@ export default function SignupScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | undefined>>({});
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isSuccessConfirmation, setIsSuccessConfirmation] = useState(false);
 
   const handleSignup = async () => {
     setAuthError(null);
@@ -44,6 +59,7 @@ export default function SignupScreen() {
     });
 
     if (!validationResult.success) {
+      haptics.warning();
       const errors: Record<string, string> = {};
       for (const issue of validationResult.error.issues) {
         const fieldName = String(issue.path[0]);
@@ -55,90 +71,102 @@ export default function SignupScreen() {
       return;
     }
 
+    haptics.light();
+
     // 2. Supabase Auth Sign Up
-    // Automatically creates profiles row with role='user' via DB trigger on auth.users
     const { error } = await signUp(email, password, username, displayName);
     if (error) {
+      haptics.error();
       setAuthError(error);
       return;
     }
 
-    // Success -> Navigate to account
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(tabs)/account');
-    }
+    haptics.success();
+    // Show visual confirmation prompt to check inbox
+    setIsSuccessConfirmation(true);
   };
+
+  // Confirmation view displayed when user needs to verify their email
+  if (isSuccessConfirmation) {
+    return (
+      <View
+        style={[
+          styles.confirmationContainer,
+          { paddingTop: Math.max(insets.top + 40, 60) },
+        ]}>
+        <View style={styles.confirmCard}>
+          <View style={styles.confirmIconBadge}>
+            <CheckCircle2 size={36} color="#FFFFFF" />
+          </View>
+
+          <Text style={styles.confirmTitle}>Check Your Inbox</Text>
+
+          <Text style={styles.confirmText}>
+            We've sent a verification link to{' '}
+            <Text style={styles.emailHighlight}>{email}</Text>.
+          </Text>
+
+          <Text style={styles.confirmSubtitle}>
+            Tap the link in your email to confirm your account. When the confirmation page opens, tap{' '}
+            <Text style={styles.boldText}>"Open Takilya App"</Text> to return here automatically.
+          </Text>
+
+          <View style={styles.confirmActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Proceed to Sign In"
+              onPress={() => router.replace('/(auth)/login')}
+              style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>Proceed to Sign In</Text>
+              <ArrowRight size={16} color="#000000" />
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Change email or edit details"
+              onPress={() => setIsSuccessConfirmation(false)}
+              style={styles.secondaryBtn}>
+              <Text style={styles.secondaryBtnText}>Edit Details</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
       style={styles.keyboardContainer}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled">
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: Math.max(insets.top + 24, 48) },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
         {/* Brand Header */}
         <View style={styles.brandHeader}>
           <View style={styles.logoBadge}>
-            <Ionicons name="film" size={28} color={colors.gold.primary} />
+            <Film size={28} color="#FFFFFF" />
           </View>
           <Text style={styles.title}>Join Takilya</Text>
           <Text style={styles.subtitle}>
-            Connect with Philippine cinema. Follow festivals, track regional films, and share reviews.
+            Connect with Philippine cinema. Track festivals, rate films, and write reviews.
           </Text>
         </View>
 
         {/* Auth Error Banner */}
         {authError && (
           <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle" size={18} color={colors.status.error} />
+            <AlertCircle size={16} color="#FFFFFF" />
             <Text style={styles.errorBannerText}>{authError}</Text>
           </View>
         )}
 
         {/* Form Container */}
         <View style={styles.form}>
-          {/* Username Field */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Username</Text>
-            <View
-              style={[
-                styles.inputWrapper,
-                fieldErrors.username && styles.inputWrapperError,
-              ]}>
-              <Ionicons
-                name="at-outline"
-                size={18}
-                color={fieldErrors.username ? colors.status.error : colors.text.tertiary}
-              />
-              <TextInput
-                accessibilityLabel="Username"
-                style={styles.input}
-                placeholder="sinephile_ph"
-                placeholderTextColor={colors.text.tertiary}
-                value={username}
-                onChangeText={(text) => {
-                  setUsername(text.toLowerCase());
-                  if (fieldErrors.username) {
-                    setFieldErrors((prev) => ({ ...prev, username: '' }));
-                  }
-                }}
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isLoading}
-              />
-            </View>
-            {fieldErrors.username ? (
-              <Text style={styles.fieldErrorText}>{fieldErrors.username}</Text>
-            ) : (
-              <Text style={styles.helperText}>
-                Letters, numbers, and underscores only. Min 3 characters.
-              </Text>
-            )}
-          </View>
-
-          {/* Display Name Field */}
+          {/* Display Name */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Display Name</Text>
             <View
@@ -146,21 +174,20 @@ export default function SignupScreen() {
                 styles.inputWrapper,
                 fieldErrors.displayName && styles.inputWrapperError,
               ]}>
-              <Ionicons
-                name="person-outline"
+              <User
                 size={18}
-                color={fieldErrors.displayName ? colors.status.error : colors.text.tertiary}
+                color={fieldErrors.displayName ? '#FFFFFF' : '#8A8A8A'}
               />
               <TextInput
                 accessibilityLabel="Display Name"
                 style={styles.input}
                 placeholder="Jaime Gerolaga"
-                placeholderTextColor={colors.text.tertiary}
+                placeholderTextColor="#8A8A8A"
                 value={displayName}
                 onChangeText={(text) => {
                   setDisplayName(text);
                   if (fieldErrors.displayName) {
-                    setFieldErrors((prev) => ({ ...prev, displayName: '' }));
+                    setFieldErrors((prev) => ({ ...prev, displayName: undefined }));
                   }
                 }}
                 editable={!isLoading}
@@ -171,7 +198,40 @@ export default function SignupScreen() {
             )}
           </View>
 
-          {/* Email Field */}
+          {/* Username */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Username</Text>
+            <View
+              style={[
+                styles.inputWrapper,
+                fieldErrors.username && styles.inputWrapperError,
+              ]}>
+              <AtSign
+                size={18}
+                color={fieldErrors.username ? '#FFFFFF' : '#8A8A8A'}
+              />
+              <TextInput
+                accessibilityLabel="Username"
+                style={styles.input}
+                placeholder="cinephile_ph"
+                placeholderTextColor="#8A8A8A"
+                value={username}
+                onChangeText={(text) => {
+                  setUsername(text.toLowerCase());
+                  if (fieldErrors.username) {
+                    setFieldErrors((prev) => ({ ...prev, username: undefined }));
+                  }
+                }}
+                autoCapitalize="none"
+                editable={!isLoading}
+              />
+            </View>
+            {fieldErrors.username && (
+              <Text style={styles.fieldErrorText}>{fieldErrors.username}</Text>
+            )}
+          </View>
+
+          {/* Email */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email Address</Text>
             <View
@@ -179,21 +239,20 @@ export default function SignupScreen() {
                 styles.inputWrapper,
                 fieldErrors.email && styles.inputWrapperError,
               ]}>
-              <Ionicons
-                name="mail-outline"
+              <Mail
                 size={18}
-                color={fieldErrors.email ? colors.status.error : colors.text.tertiary}
+                color={fieldErrors.email ? '#FFFFFF' : '#8A8A8A'}
               />
               <TextInput
-                accessibilityLabel="Email Address"
+                accessibilityLabel="Email address"
                 style={styles.input}
                 placeholder="name@example.com"
-                placeholderTextColor={colors.text.tertiary}
+                placeholderTextColor="#8A8A8A"
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
                   if (fieldErrors.email) {
-                    setFieldErrors((prev) => ({ ...prev, email: '' }));
+                    setFieldErrors((prev) => ({ ...prev, email: undefined }));
                   }
                 }}
                 autoCapitalize="none"
@@ -207,7 +266,7 @@ export default function SignupScreen() {
             )}
           </View>
 
-          {/* Password Field */}
+          {/* Password */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Password</Text>
             <View
@@ -215,21 +274,20 @@ export default function SignupScreen() {
                 styles.inputWrapper,
                 fieldErrors.password && styles.inputWrapperError,
               ]}>
-              <Ionicons
-                name="lock-closed-outline"
+              <Lock
                 size={18}
-                color={fieldErrors.password ? colors.status.error : colors.text.tertiary}
+                color={fieldErrors.password ? '#FFFFFF' : '#8A8A8A'}
               />
               <TextInput
                 accessibilityLabel="Password"
                 style={styles.input}
                 placeholder="At least 6 characters"
-                placeholderTextColor={colors.text.tertiary}
+                placeholderTextColor="#8A8A8A"
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
                   if (fieldErrors.password) {
-                    setFieldErrors((prev) => ({ ...prev, password: '' }));
+                    setFieldErrors((prev) => ({ ...prev, password: undefined }));
                   }
                 }}
                 secureTextEntry={!showPassword}
@@ -242,11 +300,11 @@ export default function SignupScreen() {
                 onPress={() => setShowPassword((prev) => !prev)}
                 hitSlop={8}
                 style={styles.eyeBtn}>
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={18}
-                  color={colors.text.tertiary}
-                />
+                {showPassword ? (
+                  <EyeOff size={18} color="#8A8A8A" />
+                ) : (
+                  <Eye size={18} color="#8A8A8A" />
+                )}
               </Pressable>
             </View>
             {fieldErrors.password && (
@@ -254,7 +312,7 @@ export default function SignupScreen() {
             )}
           </View>
 
-          {/* Confirm Password Field */}
+          {/* Confirm Password */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Confirm Password</Text>
             <View
@@ -262,21 +320,20 @@ export default function SignupScreen() {
                 styles.inputWrapper,
                 fieldErrors.confirmPassword && styles.inputWrapperError,
               ]}>
-              <Ionicons
-                name="checkmark-circle-outline"
+              <Lock
                 size={18}
-                color={fieldErrors.confirmPassword ? colors.status.error : colors.text.tertiary}
+                color={fieldErrors.confirmPassword ? '#FFFFFF' : '#8A8A8A'}
               />
               <TextInput
                 accessibilityLabel="Confirm Password"
                 style={styles.input}
                 placeholder="Re-enter password"
-                placeholderTextColor={colors.text.tertiary}
+                placeholderTextColor="#8A8A8A"
                 value={confirmPassword}
                 onChangeText={(text) => {
                   setConfirmPassword(text);
                   if (fieldErrors.confirmPassword) {
-                    setFieldErrors((prev) => ({ ...prev, confirmPassword: '' }));
+                    setFieldErrors((prev) => ({ ...prev, confirmPassword: undefined }));
                   }
                 }}
                 secureTextEntry={!showPassword}
@@ -289,15 +346,15 @@ export default function SignupScreen() {
             )}
           </View>
 
-          {/* Sign Up Button (min 44px tap target) */}
+          {/* Sign Up Button */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Create your Takilya account"
+            accessibilityLabel="Create Takilya Account"
             onPress={handleSignup}
             disabled={isLoading}
             style={[styles.primaryButton, isLoading && styles.primaryButtonDisabled]}>
             {isLoading ? (
-              <ActivityIndicator color={colors.text.inverse} size="small" />
+              <ActivityIndicator color="#000000" size="small" />
             ) : (
               <Text style={styles.primaryButtonText}>Create Account</Text>
             )}
@@ -324,47 +381,49 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   keyboardContainer: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: '#000000',
   },
   scrollContent: {
-    padding: spacing.xl,
-    paddingTop: spacing.lg,
-    gap: spacing.xl,
-    paddingBottom: spacing.xxxl,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xxl,
+    gap: spacing.lg,
   },
   brandHeader: {
     alignItems: 'center',
     gap: spacing.xs,
+    marginBottom: spacing.xs,
   },
   logoBadge: {
-    width: 56,
-    height: 56,
+    width: 64,
+    height: 64,
     borderRadius: radius.full,
-    backgroundColor: colors.gold.subtle,
-    borderColor: colors.gold.subtleBorder,
-    borderWidth: 1.5,
+    backgroundColor: '#141414',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.xs,
   },
   title: {
-    ...typography.titleLarge,
-    color: colors.text.primary,
+    ...typography.title,
+    fontSize: 22,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
   subtitle: {
     ...typography.body,
-    color: colors.text.secondary,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#8A8A8A',
     textAlign: 'center',
     paddingHorizontal: spacing.sm,
-    fontSize: 13,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    borderColor: colors.status.error,
+    backgroundColor: '#141414',
+    borderColor: 'rgba(255, 255, 255, 0.25)',
     borderWidth: 1,
     borderRadius: radius.sm,
     padding: spacing.md,
@@ -372,7 +431,7 @@ const styles = StyleSheet.create({
   },
   errorBannerText: {
     flex: 1,
-    color: colors.status.error,
+    color: '#D4D4D4',
     fontSize: 13,
     fontWeight: '500',
   },
@@ -380,82 +439,74 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   inputGroup: {
-    gap: 4,
+    gap: 6,
   },
   label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text.primary,
-    letterSpacing: 0.2,
-  },
-  helperText: {
-    fontSize: 11,
-    color: colors.text.tertiary,
-    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#D4D4D4',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background.secondary,
+    backgroundColor: '#0A0A0A',
     borderRadius: radius.sm,
-    borderColor: colors.border.default,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     borderWidth: 1,
     paddingHorizontal: spacing.md,
     minHeight: 48,
     gap: spacing.sm,
   },
   inputWrapperError: {
-    borderColor: colors.status.error,
+    borderColor: '#FFFFFF',
   },
   input: {
     flex: 1,
-    color: colors.text.primary,
+    color: '#FFFFFF',
     fontSize: 14,
     paddingVertical: spacing.sm,
   },
   eyeBtn: {
-    minWidth: 32,
-    minHeight: 32,
+    minWidth: 44,
+    minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
   fieldErrorText: {
-    fontSize: 12,
-    color: colors.status.error,
+    fontSize: 11,
+    color: '#D4D4D4',
     fontWeight: '500',
-    marginTop: 2,
   },
   primaryButton: {
-    backgroundColor: colors.gold.primary,
-    borderRadius: radius.xs,
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.full,
     minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
     marginTop: spacing.sm,
-    elevation: 2,
-    shadowColor: colors.gold.primary,
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
   },
   primaryButtonDisabled: {
     opacity: 0.6,
   },
   primaryButtonText: {
-    color: colors.text.inverse,
-    fontSize: 15,
+    color: '#000000',
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   footerText: {
-    color: colors.text.secondary,
+    color: '#8A8A8A',
     fontSize: 13,
   },
   linkButton: {
@@ -463,8 +514,83 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   linkButtonText: {
-    color: colors.gold.primary,
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
+  },
+  // Confirmation state styles
+  confirmationContainer: {
+    flex: 1,
+    backgroundColor: '#000000',
+    paddingHorizontal: spacing.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  confirmCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#0A0A0A',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: radius.cardLarge,
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
+  confirmIconBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.full,
+    backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  confirmTitle: {
+    ...typography.title,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  confirmText: {
+    ...typography.body,
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#D4D4D4',
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  emailHighlight: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  confirmSubtitle: {
+    ...typography.caption,
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#8A8A8A',
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  boldText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  confirmActions: {
+    width: '100%',
+    gap: spacing.sm,
+  },
+  secondaryBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  secondaryBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8A8A8A',
   },
 });

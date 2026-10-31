@@ -30,5 +30,6 @@ export interface AuthContextValue {
   signOut: () => Promise<{ error: string | null }>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   refreshProfile: () => Promise<void>;
+  refreshSession: () => Promise<void>;
 }
 

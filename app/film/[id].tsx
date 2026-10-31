@@ -163,30 +163,34 @@ export default function FilmDetailScreen() {
 
   const handleToggleWatchlist = () => {
     if (!film) return;
+    if (!user) {
+      router.push('/(auth)/login');
+      return;
+    }
     const nextState = !isInWatchlist;
     setLocalWatchlist(nextState);
 
-    if (user) {
-      toggleWatchlistMutation.mutate({
-        filmId: film.id,
-        userId: user.id,
-        currentlyInWatchlist: isInWatchlist,
-      });
-    }
+    toggleWatchlistMutation.mutate({
+      filmId: film.id,
+      userId: user.id,
+      currentlyInWatchlist: isInWatchlist,
+    });
   };
 
   const handleToggleWatched = () => {
     if (!film) return;
+    if (!user) {
+      router.push('/(auth)/login');
+      return;
+    }
     const nextState = !isWatched;
     setLocalWatched(nextState);
 
-    if (user) {
-      markWatchedMutation.mutate({
-        filmId: film.id,
-        userId: user.id,
-        currentlyWatched: isWatched,
-      });
-    }
+    markWatchedMutation.mutate({
+      filmId: film.id,
+      userId: user.id,
+      currentlyWatched: isWatched,
+    });
   };
 
   const handleSaveLogReview = (data: {
@@ -376,7 +380,13 @@ export default function FilmDetailScreen() {
         {/* Community Reviews & "Write a Review" entry */}
         <FilmReviewsSection
           reviews={film.reviews}
-          onWriteReview={() => setIsRateModalOpen(true)}
+          onWriteReview={() => {
+            if (!user) {
+              router.push('/(auth)/login');
+              return;
+            }
+            setIsRateModalOpen(true);
+          }}
           filmTitle={film.title}
         />
 
@@ -391,7 +401,13 @@ export default function FilmDetailScreen() {
         userRating={userRating}
         onToggleWatchlist={handleToggleWatchlist}
         onToggleWatched={handleToggleWatched}
-        onOpenRateModal={() => setIsRateModalOpen(true)}
+        onOpenRateModal={() => {
+          if (!user) {
+            router.push('/(auth)/login');
+            return;
+          }
+          setIsRateModalOpen(true);
+        }}
       />
 
       {/* 4. Prompt 2.4: Log & Review Bottom Sheet */}

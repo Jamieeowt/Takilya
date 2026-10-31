@@ -58,7 +58,10 @@ export default function ActivityScreen() {
   const createListMutation = useCreateCuratedList();
 
   const handleLike = (item: ActivityItem) => {
-    if (!user) return;
+    if (!user) {
+      router.push('/(auth)/login');
+      return;
+    }
     const reviewId = item.review?.id || item.id;
     toggleLikeMutation.mutate({
       userId: user.id,
@@ -122,6 +125,10 @@ export default function ActivityScreen() {
             accessibilityRole="button"
             accessibilityLabel="Create custom list"
             onPress={() => {
+              if (!user) {
+                router.push('/(auth)/login');
+                return;
+              }
               try {
                 void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               } catch {}

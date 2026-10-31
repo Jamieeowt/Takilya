@@ -1,9 +1,13 @@
 import React from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { haptics } from '@/lib/haptics';
+import { useAuth } from '@/features/auth/AuthContext';
 
 export default function TabLayout() {
+  const router = useRouter();
+  const { isAuthenticated } = useAuth();
+
   return (
     <Tabs
       screenListeners={{
@@ -114,6 +118,14 @@ export default function TabLayout() {
               color={typeof color === 'string' ? color : '#FFFFFF'}
             />
           ),
+        }}
+        listeners={{
+          tabPress: (e) => {
+            if (!isAuthenticated) {
+              e.preventDefault();
+              router.push('/(auth)/login');
+            }
+          },
         }}
       />
       <Tabs.Screen

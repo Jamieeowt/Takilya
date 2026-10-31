@@ -10,13 +10,17 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { Link } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, typography } from '@/lib/theme';
+import { Link, useRouter } from 'expo-router';
+import { KeyRound, Mail, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { haptics } from '@/lib/haptics';
+import { radius, spacing, typography } from '@/lib/theme';
 import { useAuth } from '@/features/auth/AuthContext';
 import { resetPasswordSchema } from '@/features/auth/validation';
 
 export default function ForgotPasswordScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { resetPassword, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -31,17 +35,22 @@ export default function ForgotPasswordScreen() {
     // 1. Zod Validation
     const validationResult = resetPasswordSchema.safeParse({ email });
     if (!validationResult.success) {
-      setEmailError(validationResult.error.issues[0]?.message ?? 'Invalid email');
+      haptics.warning();
+      setEmailError(validationResult.error.issues[0]?.message ?? 'Invalid email address');
       return;
     }
+
+    haptics.light();
 
     // 2. Supabase Auth reset password
     const { error } = await resetPassword(email);
     if (error) {
+      haptics.error();
       setAuthError(error);
       return;
     }
 
+    haptics.success();
     setIsSuccess(true);
   };
 
@@ -50,24 +59,27 @@ export default function ForgotPasswordScreen() {
       style={styles.keyboardContainer}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled">
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: Math.max(insets.top + 24, 48) },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
         {/* Brand Header */}
         <View style={styles.brandHeader}>
           <View style={styles.logoBadge}>
-            <Ionicons name="key-outline" size={28} color={colors.gold.primary} />
+            <KeyRound size={28} color="#FFFFFF" />
           </View>
           <Text style={styles.title}>Reset Password</Text>
           <Text style={styles.subtitle}>
-            Enter the email address registered with your Takilya account and we will send you
-            instructions to reset your password.
+            Enter the email registered with your Takilya account and we will send you a reset link.
           </Text>
         </View>
 
         {/* Error Banner */}
         {authError && (
           <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle" size={18} color={colors.status.error} />
+            <AlertCircle size={16} color="#FFFFFF" />
             <Text style={styles.errorBannerText}>{authError}</Text>
           </View>
         )}
@@ -75,7 +87,7 @@ export default function ForgotPasswordScreen() {
         {/* Success Banner */}
         {isSuccess && (
           <View style={styles.successBanner}>
-            <Ionicons name="checkmark-circle" size={18} color={colors.status.success} />
+            <CheckCircle2 size={16} color="#FFFFFF" />
             <Text style={styles.successBannerText}>
               Password reset link sent! Check your inbox to set a new password.
             </Text>
@@ -91,16 +103,15 @@ export default function ForgotPasswordScreen() {
                 styles.inputWrapper,
                 Boolean(emailError) && styles.inputWrapperError,
               ]}>
-              <Ionicons
-                name="mail-outline"
+              <Mail
                 size={18}
-                color={emailError ? colors.status.error : colors.text.tertiary}
+                color={emailError ? '#FFFFFF' : '#8A8A8A'}
               />
               <TextInput
                 accessibilityLabel="Email Address"
                 style={styles.input}
                 placeholder="name@example.com"
-                placeholderTextColor={colors.text.tertiary}
+                placeholderTextColor="#8A8A8A"
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
@@ -112,7 +123,9 @@ export default function ForgotPasswordScreen() {
                 editable={!isLoading}
               />
             </View>
-            {emailError && <Text style={styles.fieldErrorText}>{emailError}</Text>}
+            {emailError && (
+              <Text style={styles.fieldErrorText}>{emailError}</Text>
+            )}
           </View>
 
           {/* Submit Button */}
@@ -123,22 +136,22 @@ export default function ForgotPasswordScreen() {
             disabled={isLoading}
             style={[styles.primaryButton, isLoading && styles.primaryButtonDisabled]}>
             {isLoading ? (
-              <ActivityIndicator color={colors.text.inverse} size="small" />
+              <ActivityIndicator color="#000000" size="small" />
             ) : (
               <Text style={styles.primaryButtonText}>Send Reset Link</Text>
             )}
           </Pressable>
         </View>
 
-        {/* Footer Navigation */}
+        {/* Back to Login Link */}
         <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Remember your password?</Text>
           <Link href={"/(auth)/login" as any} asChild>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Back to sign in"
-              style={styles.linkButton}>
-              <Text style={styles.linkButtonText}>Sign In</Text>
+              style={styles.backButton}>
+              <ArrowLeft size={16} color="#8A8A8A" />
+              <Text style={styles.backButtonText}>Back to Sign In</Text>
             </Pressable>
           </Link>
         </View>
@@ -150,45 +163,49 @@ export default function ForgotPasswordScreen() {
 const styles = StyleSheet.create({
   keyboardContainer: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: '#000000',
   },
   scrollContent: {
-    padding: spacing.xl,
-    paddingTop: spacing.xxl,
-    gap: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xxl,
+    gap: spacing.lg,
   },
   brandHeader: {
     alignItems: 'center',
     gap: spacing.xs,
+    marginBottom: spacing.xs,
   },
   logoBadge: {
-    width: 60,
-    height: 60,
+    width: 64,
+    height: 64,
     borderRadius: radius.full,
-    backgroundColor: colors.gold.subtle,
-    borderColor: colors.gold.subtleBorder,
-    borderWidth: 1.5,
+    backgroundColor: '#141414',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.xs,
   },
   title: {
-    ...typography.titleLarge,
-    color: colors.text.primary,
+    ...typography.title,
+    fontSize: 22,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
   subtitle: {
     ...typography.body,
-    color: colors.text.secondary,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#8A8A8A',
     textAlign: 'center',
     paddingHorizontal: spacing.sm,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    borderColor: colors.status.error,
+    backgroundColor: '#141414',
+    borderColor: 'rgba(255, 255, 255, 0.25)',
     borderWidth: 1,
     borderRadius: radius.sm,
     padding: spacing.md,
@@ -196,15 +213,15 @@ const styles = StyleSheet.create({
   },
   errorBannerText: {
     flex: 1,
-    color: colors.status.error,
+    color: '#D4D4D4',
     fontSize: 13,
     fontWeight: '500',
   },
   successBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    borderColor: colors.status.success,
+    backgroundColor: '#141414',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
     borderWidth: 1,
     borderRadius: radius.sm,
     padding: spacing.md,
@@ -212,87 +229,81 @@ const styles = StyleSheet.create({
   },
   successBannerText: {
     flex: 1,
-    color: colors.status.success,
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  form: {
-    gap: spacing.lg,
-  },
-  inputGroup: {
-    gap: spacing.xs,
-  },
-  label: {
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
-    color: colors.text.primary,
-    letterSpacing: 0.2,
+  },
+  form: {
+    gap: spacing.md,
+  },
+  inputGroup: {
+    gap: 6,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#D4D4D4',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background.secondary,
+    backgroundColor: '#0A0A0A',
     borderRadius: radius.sm,
-    borderColor: colors.border.default,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     borderWidth: 1,
     paddingHorizontal: spacing.md,
     minHeight: 48,
     gap: spacing.sm,
   },
   inputWrapperError: {
-    borderColor: colors.status.error,
+    borderColor: '#FFFFFF',
   },
   input: {
     flex: 1,
-    color: colors.text.primary,
+    color: '#FFFFFF',
     fontSize: 14,
     paddingVertical: spacing.sm,
   },
   fieldErrorText: {
-    fontSize: 12,
-    color: colors.status.error,
+    fontSize: 11,
+    color: '#D4D4D4',
     fontWeight: '500',
   },
   primaryButton: {
-    backgroundColor: colors.gold.primary,
-    borderRadius: radius.xs,
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.full,
     minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: spacing.sm,
-    elevation: 2,
-    shadowColor: colors.gold.primary,
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
   },
   primaryButtonDisabled: {
     opacity: 0.6,
   },
   primaryButtonText: {
-    color: colors.text.inverse,
-    fontSize: 15,
+    color: '#000000',
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
-    paddingVertical: spacing.md,
-  },
-  footerText: {
-    color: colors.text.secondary,
-    fontSize: 13,
-  },
-  linkButton: {
     minHeight: 44,
     justifyContent: 'center',
   },
-  linkButtonText: {
-    color: colors.gold.primary,
+  backButtonText: {
+    color: '#8A8A8A',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

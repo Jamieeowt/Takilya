@@ -1,46 +1,46 @@
 import React from 'react';
 import { Stack } from 'expo-router';
-import { colors } from '@/lib/theme';
 
 export default function AuthLayout() {
   return (
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: colors.background.primary,
+          backgroundColor: '#000000',
         },
-        headerTintColor: colors.gold.primary,
+        headerTintColor: '#FFFFFF',
         headerTitleStyle: {
-          color: colors.text.primary,
+          color: '#FFFFFF',
           fontWeight: '700',
+          fontSize: 16,
         },
         headerShadowVisible: false,
         contentStyle: {
-          backgroundColor: colors.background.primary,
+          backgroundColor: '#000000',
         },
       }}>
       <Stack.Screen
         name="login"
         options={{
           title: 'Sign In',
-          headerBackTitle: 'Back',
+          headerShown: false,
         }}
       />
       <Stack.Screen
         name="signup"
         options={{
           title: 'Create Account',
-          headerBackTitle: 'Back',
+          headerShown: false,
         }}
       />
       <Stack.Screen
         name="forgot-password"
         options={{
           title: 'Reset Password',
+          headerShown: true,
           headerBackTitle: 'Back',
         }}
       />
     </Stack>
   );
 }
-

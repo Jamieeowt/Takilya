@@ -11,13 +11,16 @@ import {
   ScrollView,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, typography } from '@/lib/theme';
+import { Film, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { haptics } from '@/lib/haptics';
+import { radius, spacing, typography } from '@/lib/theme';
 import { useAuth } from '@/features/auth/AuthContext';
 import { loginSchema } from '@/features/auth/validation';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { signIn, isLoading } = useAuth();
 
   const [email, setEmail] = useState('');
@@ -33,6 +36,7 @@ export default function LoginScreen() {
     // 1. Zod Form Validation
     const validationResult = loginSchema.safeParse({ email, password });
     if (!validationResult.success) {
+      haptics.warning();
       const errors: { email?: string; password?: string } = {};
       for (const issue of validationResult.error.issues) {
         const field = issue.path[0] as 'email' | 'password';
@@ -44,19 +48,19 @@ export default function LoginScreen() {
       return;
     }
 
+    haptics.light();
+
     // 2. Supabase Auth Sign In
     const { error } = await signIn(email, password);
     if (error) {
+      haptics.error();
       setAuthError(error);
       return;
     }
 
-    // Success -> navigate to account or feed
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(tabs)/account');
-    }
+    haptics.success();
+    // Router navigation guard in app/_layout.tsx will automatically route to /(tabs)
+    router.replace('/(tabs)');
   };
 
   return (
@@ -64,23 +68,27 @@ export default function LoginScreen() {
       style={styles.keyboardContainer}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled">
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: Math.max(insets.top + 24, 48) },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
         {/* Brand Header */}
         <View style={styles.brandHeader}>
           <View style={styles.logoBadge}>
-            <Ionicons name="film" size={32} color={colors.gold.primary} />
+            <Film size={28} color="#FFFFFF" />
           </View>
-          <Text style={styles.title}>Welcome to Takilya</Text>
+          <Text style={styles.title}>Takilya</Text>
           <Text style={styles.subtitle}>
-            Sign in to rate films, write reviews, and curate your personal canon.
+            Sign in to discover Philippine cinema, rate films, and curate your personal canon.
           </Text>
         </View>
 
         {/* Auth Error Banner */}
         {authError && (
           <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle" size={18} color={colors.status.error} />
+            <AlertCircle size={16} color="#FFFFFF" />
             <Text style={styles.errorBannerText}>{authError}</Text>
           </View>
         )}
@@ -95,16 +103,15 @@ export default function LoginScreen() {
                 styles.inputWrapper,
                 fieldErrors.email && styles.inputWrapperError,
               ]}>
-              <Ionicons
-                name="mail-outline"
+              <Mail
                 size={18}
-                color={fieldErrors.email ? colors.status.error : colors.text.tertiary}
+                color={fieldErrors.email ? '#FFFFFF' : '#8A8A8A'}
               />
               <TextInput
                 accessibilityLabel="Email address"
                 style={styles.input}
-                placeholder="name@example.com"
-                placeholderTextColor={colors.text.tertiary}
+                placeholder="cinephile@example.ph"
+                placeholderTextColor="#8A8A8A"
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
@@ -141,16 +148,15 @@ export default function LoginScreen() {
                 styles.inputWrapper,
                 fieldErrors.password && styles.inputWrapperError,
               ]}>
-              <Ionicons
-                name="lock-closed-outline"
+              <Lock
                 size={18}
-                color={fieldErrors.password ? colors.status.error : colors.text.tertiary}
+                color={fieldErrors.password ? '#FFFFFF' : '#8A8A8A'}
               />
               <TextInput
                 accessibilityLabel="Password"
                 style={styles.input}
                 placeholder="••••••••"
-                placeholderTextColor={colors.text.tertiary}
+                placeholderTextColor="#8A8A8A"
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
@@ -168,11 +174,11 @@ export default function LoginScreen() {
                 onPress={() => setShowPassword((prev) => !prev)}
                 hitSlop={8}
                 style={styles.eyeBtn}>
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={18}
-                  color={colors.text.tertiary}
-                />
+                {showPassword ? (
+                  <EyeOff size={18} color="#8A8A8A" />
+                ) : (
+                  <Eye size={18} color="#8A8A8A" />
+                )}
               </Pressable>
             </View>
             {fieldErrors.password && (
@@ -180,7 +186,7 @@ export default function LoginScreen() {
             )}
           </View>
 
-          {/* Sign In Button (min 44px tap target) */}
+          {/* Sign In Button */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Sign in with email and password"
@@ -188,7 +194,7 @@ export default function LoginScreen() {
             disabled={isLoading}
             style={[styles.primaryButton, isLoading && styles.primaryButtonDisabled]}>
             {isLoading ? (
-              <ActivityIndicator color={colors.text.inverse} size="small" />
+              <ActivityIndicator color="#000000" size="small" />
             ) : (
               <Text style={styles.primaryButtonText}>Sign In</Text>
             )}
@@ -215,45 +221,49 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   keyboardContainer: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: '#000000',
   },
   scrollContent: {
-    padding: spacing.xl,
-    paddingTop: spacing.xxl,
-    gap: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xxl,
+    gap: spacing.lg,
   },
   brandHeader: {
     alignItems: 'center',
     gap: spacing.xs,
+    marginBottom: spacing.xs,
   },
   logoBadge: {
-    width: 60,
-    height: 60,
+    width: 64,
+    height: 64,
     borderRadius: radius.full,
-    backgroundColor: colors.gold.subtle,
-    borderColor: colors.gold.subtleBorder,
-    borderWidth: 1.5,
+    backgroundColor: '#141414',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.xs,
   },
   title: {
-    ...typography.titleLarge,
-    color: colors.text.primary,
+    ...typography.title,
+    fontSize: 22,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
   subtitle: {
     ...typography.body,
-    color: colors.text.secondary,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#8A8A8A',
     textAlign: 'center',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    borderColor: colors.status.error,
+    backgroundColor: '#141414',
+    borderColor: 'rgba(255, 255, 255, 0.25)',
     borderWidth: 1,
     borderRadius: radius.sm,
     padding: spacing.md,
@@ -261,15 +271,15 @@ const styles = StyleSheet.create({
   },
   errorBannerText: {
     flex: 1,
-    color: colors.status.error,
+    color: '#D4D4D4',
     fontSize: 13,
     fontWeight: '500',
   },
   form: {
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   inputGroup: {
-    gap: spacing.xs,
+    gap: 6,
   },
   passwordLabelRow: {
     flexDirection: 'row',
@@ -277,78 +287,74 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text.primary,
-    letterSpacing: 0.2,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#D4D4D4',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   forgotPasswordText: {
     fontSize: 12,
-    color: colors.gold.primary,
+    color: '#8A8A8A',
     fontWeight: '600',
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background.secondary,
+    backgroundColor: '#0A0A0A',
     borderRadius: radius.sm,
-    borderColor: colors.border.default,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     borderWidth: 1,
     paddingHorizontal: spacing.md,
     minHeight: 48,
     gap: spacing.sm,
   },
   inputWrapperError: {
-    borderColor: colors.status.error,
+    borderColor: '#FFFFFF',
   },
   input: {
     flex: 1,
-    color: colors.text.primary,
+    color: '#FFFFFF',
     fontSize: 14,
     paddingVertical: spacing.sm,
   },
   eyeBtn: {
-    minWidth: 32,
-    minHeight: 32,
+    minWidth: 44,
+    minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
   fieldErrorText: {
-    fontSize: 12,
-    color: colors.status.error,
+    fontSize: 11,
+    color: '#D4D4D4',
     fontWeight: '500',
   },
   primaryButton: {
-    backgroundColor: colors.gold.primary,
-    borderRadius: radius.xs,
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.full,
     minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: spacing.sm,
-    elevation: 2,
-    shadowColor: colors.gold.primary,
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
   },
   primaryButtonDisabled: {
     opacity: 0.6,
   },
   primaryButtonText: {
-    color: colors.text.inverse,
-    fontSize: 15,
+    color: '#000000',
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   footerText: {
-    color: colors.text.secondary,
+    color: '#8A8A8A',
     fontSize: 13,
   },
   linkButton: {
@@ -356,7 +362,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   linkButtonText: {
-    color: colors.gold.primary,
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
   },

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Share } from 'react-native';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Edit3, Share2, Film, Star, Bookmark, ListFilter } from 'lucide-react-native';
 import { UserProfile } from '@/features/account/types';
@@ -21,6 +22,8 @@ export function ProfileHeader({
   onSelectTab,
   onEditPress,
 }: ProfileHeaderProps) {
+  const router = useRouter();
+
   const handleShare = async () => {
     try {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -35,6 +38,12 @@ export function ProfileHeader({
 
   const isCritic = profile.role === 'critic';
   const isVerified = profile.role === 'verified_official' || profile.role === 'critic' || profile.role === 'admin';
+
+  const totalFollowing =
+    (profile.following_counts?.festivals || 0) +
+    (profile.following_counts?.studios || 0) +
+    (profile.following_counts?.people || 0) +
+    (profile.following_counts?.users || 0);
 
   return (
     <View style={styles.container}>
@@ -62,6 +71,41 @@ export function ProfileHeader({
                 <Text style={styles.criticText}>CRITIC</Text>
               </View>
             )}
+          </View>
+
+          {/* Followers & Following Stat Row */}
+          <View style={styles.followStatsRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`View ${profile.followers_count} followers`}
+              onPress={() => {
+                void Haptics.selectionAsync();
+                router.push({
+                  pathname: '/user/[id]/followers' as any,
+                  params: { id: profile.id, name: profile.username },
+                });
+              }}
+              style={styles.followStatButton}>
+              <Text style={styles.followStatNumber}>{profile.followers_count}</Text>
+              <Text style={styles.followStatLabel}>Followers</Text>
+            </Pressable>
+
+            <Text style={styles.followStatDot}>•</Text>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`View ${totalFollowing} following`}
+              onPress={() => {
+                void Haptics.selectionAsync();
+                router.push({
+                  pathname: '/user/[id]/following' as any,
+                  params: { id: profile.id, name: profile.username },
+                });
+              }}
+              style={styles.followStatButton}>
+              <Text style={styles.followStatNumber}>{totalFollowing}</Text>
+              <Text style={styles.followStatLabel}>Following</Text>
+            </Pressable>
           </View>
 
           {profile.bio ? (
@@ -222,6 +266,32 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     color: '#D4D4D4',
+  },
+  followStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginVertical: 4,
+  },
+  followStatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+  },
+  followStatNumber: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  followStatLabel: {
+    fontSize: 12,
+    color: '#8A8A8A',
+    fontWeight: '500',
+  },
+  followStatDot: {
+    fontSize: 12,
+    color: '#8A8A8A',
   },
   statsBar: {
     flexDirection: 'row',

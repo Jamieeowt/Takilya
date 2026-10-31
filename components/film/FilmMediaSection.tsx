@@ -14,6 +14,7 @@ import YoutubePlayer from 'react-native-youtube-iframe';
 import * as Haptics from 'expo-haptics';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { FilmTrailerItem } from '@/features/films/types';
+import { extractYouTubeId } from '@/lib/youtube';
 import { radius, typography } from '@/lib/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -163,23 +164,24 @@ export function FilmMediaSection({ trailers }: FilmMediaSectionProps) {
                 <YoutubePlayer
                   height={(SCREEN_WIDTH - 32) * (9 / 16)}
                   width={SCREEN_WIDTH - 32}
-                  videoId={activeVideo.youtube_id}
+                  videoId={extractYouTubeId(activeVideo.youtube_id)}
                   play={true}
                   mute={isMuted}
+                  webViewStyle={{ backgroundColor: '#000000', opacity: 0.99 }}
                   initialPlayerParams={{
                     preventFullScreen: false,
                     controls: true,
                     modestbranding: true,
                     rel: false,
                     autoplay: true,
+                    iv_load_policy: 3,
                   }}
                   webViewProps={{
                     androidLayerType: 'hardware',
                     mediaPlaybackRequiresUserAction: false,
                     allowsInlineMediaPlayback: true,
-                    origin: 'https://www.youtube.com',
                   }}
-                  onError={(err: unknown) => console.warn('YouTube Player Error:', err)}
+                  onError={(err: unknown) => console.warn('[Takilya] Film Trailer Player Error:', err)}
                 />
               </View>
             )}

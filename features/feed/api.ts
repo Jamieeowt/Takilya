@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { extractYouTubeId } from '@/lib/youtube';
 import { FeedPageResponse, FeedTrailerItem, FeedType } from './types';
 
 /**
@@ -217,25 +218,25 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0009-0000-0000-000000000000',
     film_id: 'cccccccc-0009-0000-0000-000000000000',
-    youtube_video_id: 'uJv74nK4G0A',
-    title: 'Official QCinema Best Film Clip',
-    type: 'clip',
-    view_count: 15300,
+    youtube_video_id: 'R8tHz3ZgJ4E',
+    title: 'Official Well Go USA Action Trailer',
+    type: 'official',
+    view_count: 54200,
     created_at: '2024-01-25T14:30:00Z',
-    film_title: 'Oda sa Wala',
+    film_title: 'BuyBust',
     release_year: 2018,
-    director: 'Dwein Baltazar',
+    director: 'Erik Matti',
     poster_url: 'https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=400&q=80',
-    genres: ['Drama', 'Art-House', 'Indie'],
-    critic_score: 95,
-    audience_score: 86,
-    synopsis: 'An aging, solitary funeral mortician develops an unusual kinship with an unclaimed cadaver.',
+    genres: ['Action', 'Thriller', 'Pinoy Noir'],
+    critic_score: 88,
+    audience_score: 84,
+    synopsis: 'An anti-narcotics squad is trapped inside a labyrinthine Manila slum during a botched drug raid.',
     posted_by_type: 'studio',
     posted_by_id: '22222222-2222-2222-2222-222222222222',
-    posted_by_name: 'Black Sheep',
+    posted_by_name: 'Viva Films / Reality MM Studios',
     is_verified: true,
-    like_count: 1120,
-    comment_count: 98,
+    like_count: 2450,
+    comment_count: 312,
     is_liked: false,
     is_in_watchlist: false,
     is_promoted: false,
@@ -243,25 +244,25 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0010-0000-0000-000000000000',
     film_id: 'cccccccc-0010-0000-0000-000000000000',
-    youtube_video_id: 'Q_Z7fXh74_E',
-    title: 'Heritage 4K Restored Cannes Classics Trailer',
+    youtube_video_id: 'GSdh2IkQYxC',
+    title: 'Cannes Directors Fortnight Official Trailer',
     type: 'official',
-    view_count: 31000,
+    view_count: 72000,
     created_at: '2024-01-20T08:00:00Z',
-    film_title: "Batch '81",
-    release_year: 1982,
-    director: 'Mike De Leon',
+    film_title: 'On the Job',
+    release_year: 2013,
+    director: 'Erik Matti',
     poster_url: 'https://images.unsplash.com/photo-1594909122845-11baa439b7bf?w=400&q=80',
-    genres: ['Psychological Thriller', 'Classic', 'Drama'],
-    critic_score: 96,
-    audience_score: 92,
-    synopsis: 'Seven fraternity neophytes undergo seven months of brutal psychological and physical hazing.',
-    posted_by_type: 'admin',
+    genres: ['Crime', 'Thriller', 'Neo-Noir'],
+    critic_score: 94,
+    audience_score: 91,
+    synopsis: 'Two prison inmates are temporarily released by powerful officials to carry out contract assassinations.',
+    posted_by_type: 'studio',
     posted_by_id: '11111111-1111-1111-1111-111111111111',
-    posted_by_name: 'Asian Film Archive',
+    posted_by_name: 'Reality Entertainment',
     is_verified: true,
-    like_count: 2210,
-    comment_count: 340,
+    like_count: 3820,
+    comment_count: 480,
     is_liked: false,
     is_in_watchlist: false,
     is_promoted: false,
@@ -339,18 +340,7 @@ export async function fetchFeedTrailers({
 }): Promise<FeedPageResponse> {
   try {
     let followedEntityIds: string[] = [];
-
-    // If 'for_you' and user is logged in, resolve followed target IDs
-    if (feedType === 'for_you' && userId) {
-      const { data: followRows } = await supabase
-        .from('follows')
-        .select('target_id')
-        .eq('follower_id', userId);
-
-      if (followRows && followRows.length > 0) {
-        followedEntityIds = followRows.map((f: { target_id: string }) => f.target_id);
-      }
-    }
+    let linkedFilmIds = new Set<string>();
 
     // Build database query
     let query = supabase
@@ -387,15 +377,51 @@ export async function fetchFeedTrailers({
       query = query.lt('created_at', cursor);
     }
 
-    if (feedType === 'for_you' && followedEntityIds.length > 0) {
-      query = query.in('posted_by_id', followedEntityIds);
+    // If 'for_you' and user is logged in, resolve followed target IDs & linked films
+    if (feedType === 'for_you' && userId) {
+      const { data: followRows } = await supabase
+        .from('follows')
+        .select('target_type, target_id')
+        .eq('follower_id', userId);
+
+      if (followRows && followRows.length > 0) {
+        followedEntityIds = followRows.map((f: { target_id: string }) => f.target_id);
+
+        const followedStudioIds = followRows
+          .filter((r) => r.target_type === 'studio')
+          .map((r) => r.target_id);
+        const followedPeopleIds = followRows
+          .filter((r) => r.target_type === 'person')
+          .map((r) => r.target_id);
+
+        // Also query films linked to followed studios or people (directors/actors)
+        const [studioFilmsRes, creditFilmsRes] = await Promise.all([
+          followedStudioIds.length > 0
+            ? supabase.from('films').select('id').in('studio_id', followedStudioIds)
+            : Promise.resolve({ data: [] }),
+          followedPeopleIds.length > 0
+            ? supabase.from('film_credits').select('film_id').in('person_id', followedPeopleIds)
+            : Promise.resolve({ data: [] }),
+        ]);
+
+        (studioFilmsRes.data || []).forEach((f: any) => linkedFilmIds.add(f.id));
+        (creditFilmsRes.data || []).forEach((c: any) => linkedFilmIds.add(c.film_id));
+
+        if (linkedFilmIds.size > 0 && followedEntityIds.length > 0) {
+          const filmIdList = Array.from(linkedFilmIds).join(',');
+          const targetIdList = followedEntityIds.join(',');
+          query = query.or(`posted_by_id.in.(${targetIdList}),film_id.in.(${filmIdList})`);
+        } else if (followedEntityIds.length > 0) {
+          query = query.in('posted_by_id', followedEntityIds);
+        }
+      }
     }
 
     const { data: trailerRows, error } = await query;
 
     if (error || !trailerRows || trailerRows.length === 0) {
       // Fallback to sample seed data if database is empty/offline
-      return getSampleFeedPage(feedType, cursor, limit);
+      return getSampleFeedPage(feedType, cursor, limit, followedEntityIds);
     }
 
     const hasMore = trailerRows.length > limit;
@@ -439,7 +465,7 @@ export async function fetchFeedTrailers({
       formattedItems.push({
         id: t.id,
         film_id: t.film_id,
-        youtube_video_id: t.youtube_id,
+        youtube_video_id: extractYouTubeId(t.youtube_id),
         title: t.title,
         type: t.type,
         view_count: Number(t.view_count || 0),
@@ -469,7 +495,7 @@ export async function fetchFeedTrailers({
         formattedItems.push({
           id: slot.id,
           film_id: slot.film_id,
-          youtube_video_id: t.youtube_id,
+          youtube_video_id: extractYouTubeId(t.youtube_id),
           title: `Promoted • ${slot.sponsor_name}`,
           type: 'official',
           view_count: Number(t.view_count || 0),
@@ -506,23 +532,45 @@ export async function fetchFeedTrailers({
 }
 
 /**
- * Fallback cursor pagination for sample items
+ * Fallback cursor pagination for sample items with polymorphic follow filtering
  */
 function getSampleFeedPage(
-  _feedType: FeedType,
+  feedType: FeedType,
   cursor?: string | null,
-  limit = 10
+  limit = 10,
+  followedEntityIds: string[] = []
 ): FeedPageResponse {
+  let list = [...SAMPLE_PAGINATED_TRAILERS];
+
+  if (feedType === 'for_you') {
+    if (followedEntityIds.length > 0) {
+      const filtered = list.filter((item) =>
+        followedEntityIds.includes(item.posted_by_id)
+      );
+      if (filtered.length > 0) {
+        list = filtered;
+      }
+    } else {
+      // If user has not followed anyone yet, prioritize verified festival & studio clips
+      list = list.filter(
+        (item) => item.posted_by_type === 'festival' || item.posted_by_type === 'studio'
+      );
+    }
+  }
+
+  // Ensure ordered by recency
+  list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
   let startIndex = 0;
   if (cursor) {
-    const foundIndex = SAMPLE_PAGINATED_TRAILERS.findIndex((item) => item.created_at === cursor);
+    const foundIndex = list.findIndex((item) => item.created_at === cursor);
     if (foundIndex !== -1) {
       startIndex = foundIndex + 1;
     }
   }
 
-  const slice = SAMPLE_PAGINATED_TRAILERS.slice(startIndex, startIndex + limit);
-  const hasMore = startIndex + limit < SAMPLE_PAGINATED_TRAILERS.length;
+  const slice = list.slice(startIndex, startIndex + limit);
+  const hasMore = startIndex + limit < list.length;
   const nextCursor = hasMore && slice.length > 0 ? slice[slice.length - 1].created_at : null;
 
   return {

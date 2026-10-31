@@ -39,7 +39,13 @@ export default function LogModalScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
+
+  React.useEffect(() => {
+    if (!isAuthLoading && !user) {
+      router.replace('/(auth)/login');
+    }
+  }, [user, isAuthLoading, router]);
 
   const { data: film, isLoading } = useFilmDetail(id || '', user?.id);
   const logFilmMutation = useLogFilmAndReview();
