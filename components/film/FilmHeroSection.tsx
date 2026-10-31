@@ -17,6 +17,7 @@ import Animated, {
 import { FilmDetailFull } from '@/features/films/types';
 import { Chip } from '@/components/ui/Chip';
 import { radius, typography } from '@/lib/theme';
+import { BACKDROP_IMAGE_PROPS, POSTER_IMAGE_PROPS } from '@/lib/image';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BACKDROP_HEIGHT = 380;
@@ -60,10 +61,8 @@ export function FilmHeroSection({ film, scrollY }: FilmHeroSectionProps) {
         <Animated.View style={[styles.backdropImageWrap, animatedBackdropStyle]}>
           <Image
             source={{ uri: film.backdrop_url || film.poster_url || undefined }}
-            placeholder={{ blurhash: DEFAULT_BLURHASH }}
+            {...BACKDROP_IMAGE_PROPS}
             style={styles.backdropImage}
-            contentFit="cover"
-            transition={300}
           />
         </Animated.View>
 
@@ -103,10 +102,8 @@ export function FilmHeroSection({ film, scrollY }: FilmHeroSectionProps) {
         <View style={styles.posterWrapper}>
           <Image
             source={{ uri: film.poster_url || undefined }}
-            placeholder={{ blurhash: DEFAULT_BLURHASH }}
+            {...POSTER_IMAGE_PROPS}
             style={styles.posterImage}
-            contentFit="cover"
-            transition={300}
           />
         </View>
 

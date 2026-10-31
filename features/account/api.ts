@@ -8,6 +8,12 @@ import {
   UserReviewEntry,
 } from './types';
 import { UserRole } from '@/features/films/types';
+import {
+  getCachedDiary,
+  setCachedDiary,
+  getCachedWatchlist,
+  setCachedWatchlist,
+} from '@/lib/offline';
 
 // ==============================================================================
 // FALLBACK DATA (For guests, unauthenticated users, or pre-seed state)
@@ -436,28 +442,39 @@ export async function fetchUserDiary(userId?: string): Promise<UserDiaryItem[]> 
       .eq('user_id', userId)
       .order('watched_date', { ascending: false });
 
-    if (error || !data || data.length === 0) {
-      return SAMPLE_DIARY;
+    if (!error && data && data.length > 0) {
+      const formatted = data.map((item: any) => {
+        const year = item.films?.release_date
+          ? new Date(item.films.release_date).getFullYear()
+          : 2020;
+        return {
+          id: item.id,
+          film_id: item.film_id,
+          film_title: item.films?.title || 'Unknown Title',
+          release_year: year,
+          poster_url: item.films?.poster_url,
+          watched_date: item.watched_date,
+          rating: item.rating ? Number(item.rating) : null,
+          is_rewatch: Boolean(item.is_rewatch),
+          medium: item.medium || 'digital_streaming',
+          notes: item.notes,
+        };
+      });
+
+      // Persist to local cache for offline browsing
+      void setCachedDiary(userId, formatted);
+      return formatted;
     }
 
-    return data.map((item: any) => {
-      const year = item.films?.release_date
-        ? new Date(item.films.release_date).getFullYear()
-        : 2020;
-      return {
-        id: item.id,
-        film_id: item.film_id,
-        film_title: item.films?.title || 'Unknown Title',
-        release_year: year,
-        poster_url: item.films?.poster_url,
-        watched_date: item.watched_date,
-        rating: item.rating ? Number(item.rating) : null,
-        is_rewatch: Boolean(item.is_rewatch),
-        medium: item.medium || 'digital_streaming',
-        notes: item.notes,
-      };
-    });
+    // Try local offline cache if query yielded nothing or was empty
+    const cached = await getCachedDiary(userId);
+    if (cached && cached.length > 0) return cached;
+
+    return SAMPLE_DIARY;
   } catch {
+    // Offline fallback to local cache
+    const cached = await getCachedDiary(userId);
+    if (cached && cached.length > 0) return cached;
     return SAMPLE_DIARY;
   }
 }
@@ -484,28 +501,39 @@ export async function fetchUserWatchlist(userId?: string): Promise<UserWatchlist
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    if (error || !data || data.length === 0) {
-      return SAMPLE_WATCHLIST;
+    if (!error && data && data.length > 0) {
+      const formatted = data.map((item: any) => {
+        const year = item.films?.release_date
+          ? new Date(item.films.release_date).getFullYear()
+          : 2020;
+        return {
+          id: item.id,
+          film_id: item.film_id,
+          title: item.films?.title || 'Unknown Film',
+          release_year: year,
+          poster_url: item.films?.poster_url,
+          director: 'Filipino Filmmaker',
+          audience_score: 90,
+          critic_score: 92,
+          language: item.films?.language || 'Filipino',
+          added_at: item.created_at,
+        };
+      });
+
+      // Persist to local cache for offline browsing
+      void setCachedWatchlist(userId, formatted);
+      return formatted;
     }
 
-    return data.map((item: any) => {
-      const year = item.films?.release_date
-        ? new Date(item.films.release_date).getFullYear()
-        : 2020;
-      return {
-        id: item.id,
-        film_id: item.film_id,
-        title: item.films?.title || 'Unknown Film',
-        release_year: year,
-        poster_url: item.films?.poster_url,
-        director: 'Filipino Filmmaker',
-        audience_score: 90,
-        critic_score: 92,
-        language: item.films?.language || 'Filipino',
-        added_at: item.created_at,
-      };
-    });
+    // Fallback to local offline cache
+    const cached = await getCachedWatchlist(userId);
+    if (cached && cached.length > 0) return cached;
+
+    return SAMPLE_WATCHLIST;
   } catch {
+    // Offline fallback
+    const cached = await getCachedWatchlist(userId);
+    if (cached && cached.length > 0) return cached;
     return SAMPLE_WATCHLIST;
   }
 }

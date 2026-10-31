@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, Pressable, ViewStyle } from 'react-native';
 import { Star, StarHalf } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import { haptics } from '@/lib/haptics';
 
 interface RatingStarsProps {
   score: number; // 0 to 5
@@ -24,9 +24,7 @@ export function RatingStars({
 
   const handleStarPress = (val: number) => {
     if (interactive && onRate) {
-      try {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch {}
+      haptics.selection();
       onRate(val);
     }
   };

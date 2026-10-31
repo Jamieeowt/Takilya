@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { radius, typography } from '@/lib/theme';
+import { POSTER_IMAGE_PROPS } from '@/lib/image';
 
 export interface PosterCardFilm {
   id: string;
@@ -48,10 +49,8 @@ export function PosterCard({ film, width = 135, style }: PosterCardProps) {
       <View style={styles.posterWrapper}>
         <Image
           source={{ uri: film.poster_url || undefined }}
-          placeholder={{ blurhash: DEFAULT_BLURHASH }}
+          {...POSTER_IMAGE_PROPS}
           style={styles.posterImage}
-          contentFit="cover"
-          transition={250}
         />
 
         {/* Score Chip Overlay */}

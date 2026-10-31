@@ -8,6 +8,8 @@ import {
   logFilmAndReview,
 } from './api';
 import { FilmDetailFull, LogFilmPayload } from './types';
+import { enqueueMutation } from '@/lib/offline';
+import { haptics } from '@/lib/haptics';
 
 export function useFilmDetail(filmId: string, userId?: string | null) {
   return useQuery<FilmDetailFull>({
@@ -32,6 +34,7 @@ export function useToggleFilmWatchlist() {
       currentlyInWatchlist: boolean;
     }) => toggleFilmWatchlist(filmId, userId, currentlyInWatchlist),
     onSuccess: (_, variables) => {
+      haptics.medium();
       void queryClient.invalidateQueries({
         queryKey: ['filmDetail', variables.filmId],
       });
@@ -41,6 +44,19 @@ export function useToggleFilmWatchlist() {
       void queryClient.invalidateQueries({
         queryKey: ['watchlist'],
       });
+    },
+    onError: (_, variables) => {
+      // Queue offline mutation for automatic background sync
+      void enqueueMutation({
+        type: 'TOGGLE_WATCHLIST',
+        payload: {
+          filmId: variables.filmId,
+          userId: variables.userId,
+          currentStatus: variables.currentlyInWatchlist,
+        },
+        userId: variables.userId,
+      });
+      haptics.warning();
     },
   });
 }
@@ -175,13 +191,17 @@ export function useLogFilmAndReview() {
 
       return { previousFilmDetail };
     },
-    onError: (_, newLog, context) => {
-      if (context?.previousFilmDetail) {
-        queryClient.setQueryData(
-          ['filmDetail', newLog.filmId, newLog.userId],
-          context.previousFilmDetail
-        );
-      }
+    onError: (_, newLog) => {
+      // Offline fallback: queue for sync when connection recovers
+      void enqueueMutation({
+        type: 'LOG_FILM',
+        payload: newLog,
+        userId: newLog.userId,
+      });
+      haptics.warning();
+    },
+    onSuccess: () => {
+      haptics.success();
     },
     onSettled: (_, __, newLog) => {
       void queryClient.invalidateQueries({

@@ -10,6 +10,8 @@ import 'react-native-reanimated';
 import { queryClient } from '@/lib/queryClient';
 import { TakilyaNavigationTheme } from '@/lib/theme';
 import { AuthProvider } from '@/features/auth/AuthContext';
+import { ErrorBoundary as TakilyaErrorBoundary } from '@/components/ErrorBoundary';
+import { OfflineBanner } from '@/components/ui/OfflineBanner';
 
 export {
   ErrorBoundary,
@@ -43,39 +45,42 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <ThemeProvider value={TakilyaNavigationTheme}>
-            <StatusBar style="light" />
-            <Stack
-              screenOptions={{
-                headerStyle: {
-                  backgroundColor: TakilyaNavigationTheme.colors.card,
-                },
-                headerTintColor: TakilyaNavigationTheme.colors.primary,
-                headerTitleStyle: {
-                  color: TakilyaNavigationTheme.colors.text,
-                },
-              }}>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="film/[id]"
-                options={{
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="modal"
-                options={{
-                  presentation: 'modal',
-                  title: 'Takilya Info',
-                }}
-              />
-            </Stack>
-          </ThemeProvider>
-        </AuthProvider>
-      </QueryClientProvider>
+      <TakilyaErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <ThemeProvider value={TakilyaNavigationTheme}>
+              <StatusBar style="light" />
+              <OfflineBanner />
+              <Stack
+                screenOptions={{
+                  headerStyle: {
+                    backgroundColor: TakilyaNavigationTheme.colors.card,
+                  },
+                  headerTintColor: TakilyaNavigationTheme.colors.primary,
+                  headerTitleStyle: {
+                    color: TakilyaNavigationTheme.colors.text,
+                  },
+                }}>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="film/[id]"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="modal"
+                  options={{
+                    presentation: 'modal',
+                    title: 'Takilya Info',
+                  }}
+                />
+              </Stack>
+            </ThemeProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </TakilyaErrorBoundary>
     </GestureHandlerRootView>
   );
 }

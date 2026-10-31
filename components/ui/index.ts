@@ -20,3 +20,4 @@ export * from './ErrorState';
 export * from './Toast';
 export * from './GlassHeader';
 export * from './GlassTabBar';
+export * from './OfflineBanner';

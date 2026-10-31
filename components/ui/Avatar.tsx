@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { VerifiedBadge } from './VerifiedBadge';
+import { AVATAR_IMAGE_PROPS } from '@/lib/image';
 
 interface AvatarProps {
   url?: string | null;
@@ -25,9 +26,8 @@ export function Avatar({
       {url ? (
         <Image
           source={{ uri: url }}
+          {...AVATAR_IMAGE_PROPS}
           style={{ width: size, height: size, borderRadius: size / 2 }}
-          contentFit="cover"
-          transition={200}
         />
       ) : (
         <View
