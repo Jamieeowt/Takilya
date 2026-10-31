@@ -9,12 +9,13 @@ import {
   Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { Play, X, Video, Volume2, VolumeX } from 'lucide-react-native';
+import { Play, X, Video, Volume2, VolumeX, Flag } from 'lucide-react-native';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import * as Haptics from 'expo-haptics';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { FilmTrailerItem } from '@/features/films/types';
 import { extractYouTubeId } from '@/lib/youtube';
+import { ReportModal } from '@/components/moderation';
 import { radius, typography } from '@/lib/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -26,6 +27,7 @@ interface FilmMediaSectionProps {
 export function FilmMediaSection({ trailers }: FilmMediaSectionProps) {
   const [activeVideo, setActiveVideo] = useState<FilmTrailerItem | null>(null);
   const [isMuted, setIsMuted] = useState(true);
+  const [isReporting, setIsReporting] = useState(false);
 
   if (!trailers || trailers.length === 0) return null;
 
@@ -148,14 +150,30 @@ export function FilmMediaSection({ trailers }: FilmMediaSectionProps) {
                 </View>
               </View>
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Close trailer player"
-                onPress={handleCloseVideo}
-                hitSlop={8}
-                style={styles.closeBtn}>
-                <X size={20} color="#FFFFFF" />
-              </Pressable>
+              <View style={styles.modalHeaderActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Report trailer"
+                  accessibilityHint="Flags this trailer for moderation review"
+                  onPress={() => {
+                    try {
+                      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    } catch {}
+                    setIsReporting(true);
+                  }}
+                  style={styles.modalReportBtn}>
+                  <Flag size={16} color="#8A8A8A" />
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Close trailer player"
+                  onPress={handleCloseVideo}
+                  hitSlop={8}
+                  style={styles.closeBtn}>
+                  <X size={20} color="#FFFFFF" />
+                </Pressable>
+              </View>
             </View>
 
             {/* Video Player */}
@@ -209,6 +227,15 @@ export function FilmMediaSection({ trailers }: FilmMediaSectionProps) {
               <Text style={styles.ytDisclaimer}>YouTube Official Embed</Text>
             </View>
           </View>
+
+          {/* Moderation Report Modal */}
+          <ReportModal
+            visible={isReporting}
+            targetType="trailer"
+            targetId={activeVideo?.id || ''}
+            targetTitle={activeVideo?.title}
+            onClose={() => setIsReporting(false)}
+          />
         </View>
       </Modal>
     </View>
@@ -394,6 +421,21 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: '#8A8A8A',
     fontSize: 11,
+  },
+  modalHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modalReportBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   closeBtn: {
     width: 36,

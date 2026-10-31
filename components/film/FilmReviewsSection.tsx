@@ -5,13 +5,14 @@ import {
   StyleSheet,
   Pressable,
 } from 'react-native';
-import { PenLine, AlertTriangle, ChevronDown, ThumbsUp } from 'lucide-react-native';
+import { PenLine, AlertTriangle, ChevronDown, ThumbsUp, Flag } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { FilmReviewItem } from '@/features/films/types';
 import { Avatar } from '@/components/ui/Avatar';
 import { RatingStars } from '@/components/ui/RatingStars';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { Button } from '@/components/ui/Button';
+import { ReportModal } from '@/components/moderation';
 import { radius, typography } from '@/lib/theme';
 
 interface FilmReviewsSectionProps {
@@ -27,6 +28,7 @@ export function FilmReviewsSection({
 }: FilmReviewsSectionProps) {
   // Track which spoiler reviews have been unmasked by user
   const [unmaskedSpoilers, setUnmaskedSpoilers] = useState<Record<string, boolean>>({});
+  const [reportingReview, setReportingReview] = useState<FilmReviewItem | null>(null);
 
   const toggleSpoiler = (reviewId: string) => {
     try {
@@ -133,21 +135,49 @@ export function FilmReviewsSection({
                 <Text style={styles.reviewBody}>{rev.body}</Text>
               )}
 
-              {/* Footer info: upvotes */}
-              {rev.upvotes_count ? (
-                <View style={styles.reviewFooter}>
+              {/* Footer info: upvotes & report button */}
+              <View style={styles.reviewFooter}>
+                {rev.upvotes_count ? (
                   <View style={styles.upvotesRow}>
                     <ThumbsUp size={12} color="#8A8A8A" />
                     <Text style={styles.upvotesText}>
                       {rev.upvotes_count} found this helpful
                     </Text>
                   </View>
-                </View>
-              ) : null}
+                ) : (
+                  <View style={{ flex: 1 }} />
+                )}
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Report review by ${rev.user_name}`}
+                  accessibilityHint="Flags this review for moderation"
+                  onPress={() => {
+                    try {
+                      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    } catch {}
+                    setReportingReview(rev);
+                  }}
+                  style={styles.reportBtn}>
+                  <Flag size={12} color="#8A8A8A" />
+                  <Text style={styles.reportBtnText}>Report</Text>
+                </Pressable>
+              </View>
             </View>
           );
         })}
       </View>
+
+      {/* Moderation Report Modal */}
+      {reportingReview ? (
+        <ReportModal
+          visible={Boolean(reportingReview)}
+          targetType="review"
+          targetId={reportingReview.id}
+          targetTitle={reportingReview.title || `Review by ${reportingReview.user_name}`}
+          onClose={() => setReportingReview(null)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -291,6 +321,21 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: '#8A8A8A',
     fontSize: 11,
+  },
+  reportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 44,
+    paddingHorizontal: 8,
+    borderRadius: radius.sm,
+    justifyContent: 'center',
+  },
+  reportBtnText: {
+    ...typography.caption,
+    color: '#8A8A8A',
+    fontSize: 11,
+    fontWeight: '600',
   },
 });
 

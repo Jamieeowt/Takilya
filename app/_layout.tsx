@@ -17,6 +17,7 @@ import {
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext';
 import { ErrorBoundary as TakilyaErrorBoundary } from '@/components/ErrorBoundary';
 import { OfflineBanner } from '@/components/ui/OfflineBanner';
+import { OnboardingModal } from '@/components/onboarding';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -93,6 +94,7 @@ function RootNavigationLayout() {
     <ThemeProvider value={activeNavTheme}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <OfflineBanner />
+      <OnboardingModal />
       <Stack
         screenOptions={{
           headerStyle: {
@@ -224,6 +226,18 @@ function RootNavigationLayout() {
         />
         <Stack.Screen
           name="notifications/index"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="legal/terms"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="legal/privacy"
           options={{
             headerShown: false,
           }}

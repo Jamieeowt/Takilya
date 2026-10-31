@@ -15,6 +15,7 @@ import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, typography } from '@/lib/theme';
 import { FeedTrailerItem } from '../types';
 import { useAuth } from '@/features/auth';
+import { ReportModal } from '@/components/moderation';
 
 interface FeedCommentsModalProps {
   visible: boolean;
@@ -34,6 +35,7 @@ interface CommentEntry {
 export function FeedCommentsModal({ visible, item, onClose }: FeedCommentsModalProps) {
   const { user } = useAuth();
   const [commentText, setCommentText] = useState('');
+  const [reportingComment, setReportingComment] = useState<CommentEntry | null>(null);
   const [comments, setComments] = useState<CommentEntry[]>([
     {
       id: 'c-1',
@@ -151,14 +153,31 @@ export function FeedCommentsModal({ visible, item, onClose }: FeedCommentsModalP
                   </View>
                   <Text style={styles.commentBody}>{comment.body}</Text>
                 </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Like comment"
-                  style={styles.commentLikeBtn}
-                  hitSlop={8}>
-                  <Ionicons name="heart-outline" size={14} color="#8A8A8A" />
-                  <Text style={styles.commentLikeCount}>{comment.likeCount}</Text>
-                </Pressable>
+                <View style={styles.commentActionsCol}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Like comment"
+                    style={styles.commentLikeBtn}
+                    hitSlop={8}>
+                    <Ionicons name="heart-outline" size={14} color="#8A8A8A" />
+                    <Text style={styles.commentLikeCount}>{comment.likeCount}</Text>
+                  </Pressable>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Report comment by ${comment.author}`}
+                    accessibilityHint="Flags this comment for moderation"
+                    onPress={() => {
+                      try {
+                        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      } catch {}
+                      setReportingComment(comment);
+                    }}
+                    style={styles.commentReportBtn}
+                    hitSlop={8}>
+                    <Ionicons name="flag-outline" size={13} color="#8A8A8A" />
+                  </Pressable>
+                </View>
               </View>
             )}
           />
@@ -192,6 +211,15 @@ export function FeedCommentsModal({ visible, item, onClose }: FeedCommentsModalP
             </Pressable>
           </View>
         </View>
+
+        {/* Moderation Report Modal */}
+        <ReportModal
+          visible={Boolean(reportingComment)}
+          targetType="comment"
+          targetId={reportingComment?.id || ''}
+          targetTitle={reportingComment ? `Comment by ${reportingComment.author}` : ''}
+          onClose={() => setReportingComment(null)}
+        />
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -314,13 +342,24 @@ const styles = StyleSheet.create({
     color: '#D4D4D4',
     lineHeight: 18,
   },
+  commentActionsCol: {
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 2,
+  },
   commentLikeBtn: {
     alignItems: 'center',
     gap: 2,
-    paddingTop: 2,
     minWidth: 44,
-    minHeight: 44,
+    minHeight: 36,
     justifyContent: 'center',
+  },
+  commentReportBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 44,
+    minHeight: 36,
+    padding: 4,
   },
   commentLikeCount: {
     fontSize: 10,

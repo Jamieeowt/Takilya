@@ -25,12 +25,16 @@ import {
   Video,
   FileCheck,
   BarChart3,
+  FileText,
+  Lock,
+  Sparkles,
 } from 'lucide-react-native';
 
 import { useAuth, useRole } from '@/features/auth';
 import { useTheme } from '@/lib/theme';
 import { GlassHeader } from '@/components/ui/GlassHeader';
 import { Avatar } from '@/components/ui/Avatar';
+import { OnboardingModal } from '@/components/onboarding';
 import { radius, spacing, typography } from '@/lib/theme';
 
 export default function SettingsScreen() {
@@ -39,6 +43,7 @@ export default function SettingsScreen() {
   const { user, profile, isAuthenticated, signOut } = useAuth();
   const { isVerifiedOfficial, isAdmin } = useRole();
   const { theme, isDark, setTheme, tokens } = useTheme();
+  const [showOnboarding, setShowOnboarding] = React.useState(false);
 
   const handleToggleTheme = (newMode: 'dark' | 'light') => {
     try {
@@ -339,6 +344,74 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Legal & Policies */}
+        <Text style={[styles.sectionHeaderTitle, { color: tokens.text.tertiary }]}>
+          LEGAL & COMMUNITY GUIDELINES
+        </Text>
+
+        <View style={[styles.section, { backgroundColor: tokens.background.secondary, borderColor: tokens.border.hairline }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="View Terms of Service and Community Rules"
+            onPress={() => router.push('/legal/terms' as any)}
+            style={styles.menuRow}>
+            <View style={styles.menuRowLeft}>
+              <FileText size={18} color={tokens.text.primary} />
+              <View style={styles.menuRowText}>
+                <Text style={[styles.settingTitle, { color: tokens.text.primary }]}>
+                  Terms & Community Rules
+                </Text>
+                <Text style={[styles.settingSubtitle, { color: tokens.text.secondary }]}>
+                  Strict anti-piracy, spoiler policies, and community conduct
+                </Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color={tokens.text.tertiary} />
+          </Pressable>
+
+          <View style={[styles.divider, { backgroundColor: tokens.border.hairline }]} />
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="View Privacy Policy"
+            onPress={() => router.push('/legal/privacy' as any)}
+            style={styles.menuRow}>
+            <View style={styles.menuRowLeft}>
+              <Lock size={18} color={tokens.text.primary} />
+              <View style={styles.menuRowText}>
+                <Text style={[styles.settingTitle, { color: tokens.text.primary }]}>
+                  Privacy Policy
+                </Text>
+                <Text style={[styles.settingSubtitle, { color: tokens.text.secondary }]}>
+                  Zero data selling, Row Level Security, and data protection
+                </Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color={tokens.text.tertiary} />
+          </Pressable>
+
+          <View style={[styles.divider, { backgroundColor: tokens.border.hairline }]} />
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Replay First-Time Onboarding Tour"
+            onPress={() => setShowOnboarding(true)}
+            style={styles.menuRow}>
+            <View style={styles.menuRowLeft}>
+              <Sparkles size={18} color={tokens.text.primary} />
+              <View style={styles.menuRowText}>
+                <Text style={[styles.settingTitle, { color: tokens.text.primary }]}>
+                  Welcome Tour
+                </Text>
+                <Text style={[styles.settingSubtitle, { color: tokens.text.secondary }]}>
+                  Re-explore discover, dual ratings, and creator features
+                </Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color={tokens.text.tertiary} />
+          </Pressable>
+        </View>
+
         {/* About Takilya */}
         <Text style={[styles.sectionHeaderTitle, { color: tokens.text.tertiary }]}>
           ABOUT
@@ -372,6 +445,12 @@ export default function SettingsScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Onboarding Tour Modal */}
+      <OnboardingModal
+        forceVisible={showOnboarding}
+        onDismiss={() => setShowOnboarding(false)}
+      />
     </View>
   );
 }

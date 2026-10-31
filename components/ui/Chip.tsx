@@ -49,6 +49,7 @@ export function Chip({
         accessibilityLabel={`Tag: ${label}`}
         accessibilityState={{ selected }}
         onPress={handlePress}
+        hitSlop={8}
         style={({ pressed }) => [
           styles.base,
           isFilled ? styles.filled : styles.outlined,

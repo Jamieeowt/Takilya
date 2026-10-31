@@ -33,6 +33,7 @@ import { FeedTrailerItem } from '../types';
 import { useIncrementTrailerView, useToggleWatchlist } from '../useFeed';
 import { useAuth } from '@/features/auth';
 import { useRecordPromotedEvent } from '@/features/promoted';
+import { ReportModal } from '@/components/moderation';
 
 interface FeedVideoItemProps {
   item: FeedTrailerItem;
@@ -83,6 +84,7 @@ export function FeedVideoItem({
   const [isLiked, setIsLiked] = useState(Boolean(item.is_liked));
   const [likeCount, setLikeCount] = useState(item.like_count);
   const [isInWatchlist, setIsInWatchlist] = useState(Boolean(item.is_in_watchlist));
+  const [isReportModalVisible, setIsReportModalVisible] = useState(false);
 
   const hasIncrementedView = useRef(false);
   const incrementViewMutation = useIncrementTrailerView();
@@ -650,6 +652,23 @@ export function FeedVideoItem({
             <Text style={styles.actionRailLabel}>Share</Text>
           </Pressable>
 
+          {/* Report Action (Prompt 5.2 Content Moderation) */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Report trailer content"
+            onPress={() => {
+              try {
+                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              } catch {}
+              setIsReportModalVisible(true);
+            }}
+            style={styles.actionRailBtn}>
+            <View style={styles.actionIconWrap}>
+              <Ionicons name="flag-outline" size={20} color="#FFFFFF" />
+            </View>
+            <Text style={styles.actionRailLabel}>Report</Text>
+          </Pressable>
+
           {/* View Film Detail Action */}
           <Pressable
             accessibilityRole="button"
@@ -696,6 +715,15 @@ export function FeedVideoItem({
       <View style={styles.bottomProgressBarTrack}>
         <Animated.View style={[styles.bottomProgressBarFill, animatedProgressStyle]} />
       </View>
+
+      {/* Moderation Report Modal */}
+      <ReportModal
+        visible={isReportModalVisible}
+        targetType="trailer"
+        targetId={item.id}
+        targetTitle={`${item.film_title} - ${item.title}`}
+        onClose={() => setIsReportModalVisible(false)}
+      />
     </View>
   );
 }
