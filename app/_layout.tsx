@@ -130,6 +130,18 @@ function RootNavigationLayout() {
           }}
         />
         <Stack.Screen
+          name="festivals/index"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="festival/[id]"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
           name="settings"
           options={{
             presentation: 'modal',

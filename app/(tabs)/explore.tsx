@@ -25,6 +25,8 @@ import { RestoredClassicsSection } from '@/features/explore/components/RestoredC
 import { SearchResultsList } from '@/features/explore/components/SearchResultsList';
 import { FilteredFilmsGrid } from '@/features/explore/components/FilteredFilmsGrid';
 import { ExploreSkeleton } from '@/features/explore/components/ExploreSkeleton';
+import { useFestivals } from '@/features/festivals/useFestivals';
+import { FestivalsRail } from '@/components/festivals';
 
 export default function ExploreScreen() {
   // Search state with debouncing (300ms)
@@ -88,11 +90,17 @@ export default function ExploreScreen() {
     isLoading: isSearchLoading,
   } = useExploreSearch(debouncedQuery);
 
+  const {
+    data: festivals = [],
+    refetch: refetchFestivals,
+  } = useFestivals();
+
   const handleRefresh = () => {
     if (isFiltering) {
       void refetchFiltered();
     } else {
       void refetchSections();
+      void refetchFestivals();
     }
   };
 
@@ -106,8 +114,8 @@ export default function ExploreScreen() {
         <RefreshControl
           refreshing={isSectionsRefetching || isFilteredRefetching}
           onRefresh={handleRefresh}
-          tintColor={colors.gold.primary}
-          colors={[colors.gold.primary]}
+          tintColor="#FFFFFF"
+          colors={['#FFFFFF']}
         />
       }>
       {/* 1. Top Search Bar with Debounced Query */}
@@ -174,6 +182,9 @@ export default function ExploreScreen() {
           {/* Section 1: Featured Today (Promoted or Editorial Hero Card) */}
           <FeaturedHeroCard hero={sectionsData.featured} />
 
+          {/* Section: Philippine Film Festivals Database Rail */}
+          <FestivalsRail festivals={festivals} />
+
           {/* Section 2: National Artist Masterworks */}
           <NationalArtistSection items={sectionsData.nationalArtists} />
 
@@ -237,16 +248,16 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     marginTop: spacing.md,
-    backgroundColor: colors.gold.primary,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: spacing.xl,
     minHeight: 44,
-    borderRadius: radius.xs,
+    borderRadius: radius.full,
     justifyContent: 'center',
     alignItems: 'center',
   },
   retryButtonText: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.text.inverse,
+    color: '#000000',
   },
 });
