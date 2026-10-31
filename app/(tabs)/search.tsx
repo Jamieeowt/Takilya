@@ -104,7 +104,9 @@ export default function SearchScreen() {
   const totalResultsCount =
     (searchResults?.films.length || 0) +
     (searchResults?.people.length || 0) +
-    (searchResults?.screenings.length || 0);
+    (searchResults?.studios?.length || 0) +
+    (searchResults?.festivals?.length || 0) +
+    (searchResults?.screenings?.length || 0);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -158,10 +160,12 @@ export default function SearchScreen() {
         // B. Loading / Transition Shimmer Skeletons
         <SearchSkeletonGrid />
       ) : totalResultsCount > 0 ? (
-        // C. Results Grid & Multi-Entity Tabs (Films, Filmmakers, Screenings)
+        // C. Results Grid & Multi-Entity Tabs (Films, People, Studios, Festivals, Screenings)
         <SearchResultsGrid
           films={searchResults?.films || []}
           people={searchResults?.people || []}
+          studios={searchResults?.studios || []}
+          festivals={searchResults?.festivals || []}
           screenings={searchResults?.screenings || []}
         />
       ) : (

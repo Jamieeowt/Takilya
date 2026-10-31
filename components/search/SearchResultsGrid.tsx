@@ -9,14 +9,18 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { Building2, Calendar, Users, Film } from 'lucide-react-native';
 
 import {
   SearchFilmItem,
   SearchPersonItem,
+  SearchStudioItem,
+  SearchFestivalItem,
   SearchScreeningItem,
 } from '@/features/search/types';
 import { PosterCard } from '@/components/ui/PosterCard';
 import { Avatar } from '@/components/ui/Avatar';
+import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { radius, typography } from '@/lib/theme';
 
@@ -29,21 +33,27 @@ const POSTER_WIDTH = Math.floor((SCREEN_WIDTH - PADDING * 2 - COLUMN_GAP * 2) / 
 interface SearchResultsGridProps {
   films: SearchFilmItem[];
   people: SearchPersonItem[];
-  screenings: SearchScreeningItem[];
+  studios?: SearchStudioItem[];
+  festivals?: SearchFestivalItem[];
+  screenings?: SearchScreeningItem[];
   onEndReached?: () => void;
 }
 
 export function SearchResultsGrid({
   films,
   people,
-  screenings,
+  studios = [],
+  festivals = [],
+  screenings = [],
   onEndReached,
 }: SearchResultsGridProps) {
   const router = useRouter();
 
-  // Tab selections: Films, People, Screenings
+  // Tab selections: Films, Filmmakers, Studios, Festivals, Screenings
   const segments: string[] = [`Films (${films.length})`];
-  if (people.length > 0) segments.push(`Filmmakers (${people.length})`);
+  if (people.length > 0) segments.push(`People (${people.length})`);
+  if (studios.length > 0) segments.push(`Studios (${studios.length})`);
+  if (festivals.length > 0) segments.push(`Festivals (${festivals.length})`);
   if (screenings.length > 0) segments.push(`Screenings (${screenings.length})`);
 
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
@@ -56,6 +66,36 @@ export function SearchResultsGrid({
     } catch {}
     router.push({
       pathname: '/film/[id]' as any,
+      params: { id },
+    });
+  };
+
+  const handleOpenPerson = (id: string) => {
+    try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    router.push({
+      pathname: '/person/[id]' as any,
+      params: { id },
+    });
+  };
+
+  const handleOpenStudio = (id: string) => {
+    try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    router.push({
+      pathname: '/studio/[id]' as any,
+      params: { id },
+    });
+  };
+
+  const handleOpenFestival = (id: string) => {
+    try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    router.push({
+      pathname: '/festival/[id]' as any,
       params: { id },
     });
   };
@@ -101,36 +141,109 @@ export function SearchResultsGrid({
         />
       )}
 
-      {/* 2. Filmmakers (People) List */}
-      {activeTab.startsWith('Filmmakers') && (
+      {/* 2. People (Directors & Actors) List */}
+      {activeTab.startsWith('People') && (
         <FlatList
           data={people}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
-            <View style={styles.personRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`View filmmaker ${item.name}`}
+              onPress={() => handleOpenPerson(item.id)}
+              style={styles.entityRow}>
               <Avatar
                 url={item.photo_url}
                 name={item.name}
                 size={48}
                 isVerified={item.is_verified}
               />
-              <View style={styles.personInfo}>
-                <Text style={styles.personName}>{item.name}</Text>
-                <Text style={styles.personRole}>{item.role_type}</Text>
+              <View style={styles.entityInfo}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.entityName}>{item.name}</Text>
+                  {item.is_verified && <VerifiedBadge size={14} />}
+                </View>
+                <Text style={styles.entitySubtitle}>{item.role_type}</Text>
                 {item.film_credits_summary && (
-                  <Text style={styles.personCredits} numberOfLines={1}>
+                  <Text style={styles.entityMeta} numberOfLines={1}>
                     {item.film_credits_summary}
                   </Text>
                 )}
               </View>
-            </View>
+            </Pressable>
           )}
         />
       )}
 
-      {/* 3. Screenings List */}
+      {/* 3. Studios List */}
+      {activeTab.startsWith('Studios') && (
+        <FlatList
+          data={studios}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`View studio ${item.name}`}
+              onPress={() => handleOpenStudio(item.id)}
+              style={styles.entityRow}>
+              <View style={styles.iconCircle}>
+                <Building2 size={22} color="#FFFFFF" />
+              </View>
+              <View style={styles.entityInfo}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.entityName}>{item.name}</Text>
+                  {item.is_verified && <VerifiedBadge size={14} />}
+                </View>
+                <Text style={styles.entitySubtitle}>
+                  Studio • Est. {item.founded_year || '2014'}
+                </Text>
+                <Text style={styles.entityMeta}>
+                  {item.followers_count?.toLocaleString() || '1,200'} followers
+                </Text>
+              </View>
+            </Pressable>
+          )}
+        />
+      )}
+
+      {/* 4. Festivals List */}
+      {activeTab.startsWith('Festivals') && (
+        <FlatList
+          data={festivals}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`View festival ${item.name}`}
+              onPress={() => handleOpenFestival(item.id)}
+              style={styles.entityRow}>
+              <View style={styles.iconCircle}>
+                <Calendar size={22} color="#FFFFFF" />
+              </View>
+              <View style={styles.entityInfo}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.entityName}>{item.name}</Text>
+                  {item.is_verified && <VerifiedBadge size={14} />}
+                </View>
+                <Text style={styles.entitySubtitle}>
+                  {item.location || 'Philippines'} • Est. {item.founded_year || '2005'}
+                </Text>
+                <Text style={styles.entityMeta}>
+                  {item.followers_count?.toLocaleString() || '8,500'} followers
+                </Text>
+              </View>
+            </Pressable>
+          )}
+        />
+      )}
+
+      {/* 5. Screenings List */}
       {activeTab.startsWith('Screenings') && (
         <FlatList
           data={screenings}
@@ -179,33 +292,49 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
 
-  // People List styles
-  personRow: {
+  // Generic Entity Row (People, Studios, Festivals)
+  entityRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
     backgroundColor: '#0A0A0A',
-    borderRadius: radius.md,
+    borderRadius: radius.card,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
     padding: 12,
+    minHeight: 64,
   },
-  personInfo: {
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  entityInfo: {
     flex: 1,
     gap: 2,
   },
-  personName: {
-    ...typography.body,
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  entityName: {
+    ...typography.titleSmall,
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 14,
   },
-  personRole: {
+  entitySubtitle: {
     ...typography.caption,
     color: '#8A8A8A',
     fontSize: 12,
   },
-  personCredits: {
+  entityMeta: {
     ...typography.caption,
     color: '#D4D4D4',
     fontSize: 11,
@@ -218,7 +347,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#0A0A0A',
-    borderRadius: radius.md,
+    borderRadius: radius.card,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
     padding: 14,
@@ -248,15 +377,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: radius.xs,
+    borderRadius: radius.full,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.16)',
   },
   statusBadgeText: {
-    ...typography.mono,
+    ...typography.caption,
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '700',
   },
 });
-

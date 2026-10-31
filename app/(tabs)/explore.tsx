@@ -7,7 +7,9 @@ import {
   RefreshControl,
   Pressable,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Layers, ChevronRight } from 'lucide-react-native';
 import { colors, spacing, radius, typography } from '@/lib/theme';
 import { ExploreFilterState } from '@/features/explore/types';
 import {
@@ -41,6 +43,7 @@ import { WhereToWatchRail } from '@/components/availability';
 
 
 export default function ExploreScreen() {
+  const router = useRouter();
   // Search state with debouncing (300ms)
   const [searchInput, setSearchInput] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -221,6 +224,26 @@ export default function ExploreScreen() {
       ) : (
         // Mode E: Curated Vertical Sections (6 Rich Sections)
         <View style={styles.sectionsContainer}>
+          {/* Quick Browse by Genre & Tag Banner */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Browse films by genre, decade, language, and tags"
+            onPress={() => router.push('/explore/browse' as any)}
+            style={styles.browseBannerCard}>
+            <View style={styles.browseBannerLeft}>
+              <View style={styles.browseIconCircle}>
+                <Layers size={18} color="#000000" />
+              </View>
+              <View style={styles.browseBannerText}>
+                <Text style={styles.browseBannerTitle}>Browse Catalog by Genre & Tags</Text>
+                <Text style={styles.browseBannerSub}>
+                  Filter Philippine indie tags, dialects, decades, and awards
+                </Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color="#FFFFFF" />
+          </Pressable>
+
           {/* Section 1: Featured Today (Promoted or Editorial Hero Card) */}
           <FeaturedHeroCard hero={sectionsData.featured} />
 
@@ -319,5 +342,49 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#000000',
+  },
+  browseBannerCard: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+    backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: radius.card,
+    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 64,
+  },
+  browseBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  browseIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  browseBannerText: {
+    flex: 1,
+    gap: 2,
+  },
+  browseBannerTitle: {
+    fontFamily: typography.titleSmall.fontFamily,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  browseBannerSub: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 11,
+    color: '#8A8A8A',
   },
 });

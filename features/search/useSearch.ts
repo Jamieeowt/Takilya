@@ -1,11 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchDiscoverySections, searchEntitiesAndFilms } from './api';
-import { SearchFilterState, SearchResultsResponse, DiscoveryCuratedSections } from './types';
+import {
+  fetchDiscoveryCuratedSections,
+  searchEntitiesAndFilms,
+  fetchBrowseFilms,
+} from './api';
+import {
+  SearchFilterState,
+  BrowseFilterState,
+  SearchResultsResponse,
+  DiscoveryCuratedSections,
+  BrowseFilmCard,
+} from './types';
 
 export function useDiscoverySections() {
   return useQuery<DiscoveryCuratedSections>({
     queryKey: ['discoverySections'],
-    queryFn: fetchDiscoverySections,
+    queryFn: fetchDiscoveryCuratedSections,
     staleTime: 1000 * 60 * 5, // 5 minutes cache
   });
 }
@@ -18,3 +28,10 @@ export function useSearchResults(searchQuery: string, filters: SearchFilterState
   });
 }
 
+export function useBrowseFilms(filters: BrowseFilterState) {
+  return useQuery<BrowseFilmCard[]>({
+    queryKey: ['browseFilms', filters],
+    queryFn: () => fetchBrowseFilms(filters),
+    staleTime: 1000 * 60 * 3,
+  });
+}

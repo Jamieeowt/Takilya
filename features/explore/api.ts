@@ -447,9 +447,11 @@ export async function fetchExploreSections(): Promise<ExploreSectionsData> {
       restoredClassics.push(...SEED_RESTORED);
     }
 
-    // 5. Regional Cinema Spotlight
+    // 5. Regional Cinema Spotlight (Philippine cinema in regional languages / dialects or tagged regional-cinema)
     const regionalSpotlight = dbFilms.filter(
-      (f) => f.tags.includes('regional-cinema') || f.language !== 'Filipino'
+      (f) =>
+        f.tags.includes('regional-cinema') ||
+        (f.language && f.language !== 'Filipino' && f.language !== 'Tagalog')
     );
 
     // 6. Trending This Week (Ranked by ratings count)
@@ -462,7 +464,14 @@ export async function fetchExploreSections(): Promise<ExploreSectionsData> {
       nationalArtists,
       cinemalaya,
       restoredClassics,
-      regionalSpotlight: regionalSpotlight.length > 0 ? regionalSpotlight : SEED_FILMS.filter((f) => f.tags.includes('regional-cinema')),
+      regionalSpotlight:
+        regionalSpotlight.length > 0
+          ? regionalSpotlight
+          : SEED_FILMS.filter(
+              (f) =>
+                f.tags.includes('regional-cinema') ||
+                (f.language !== 'Filipino' && f.language !== 'Tagalog')
+            ),
       trendingThisWeek,
     };
   } catch {
@@ -472,7 +481,11 @@ export async function fetchExploreSections(): Promise<ExploreSectionsData> {
       nationalArtists: SEED_NATIONAL_ARTISTS,
       cinemalaya: SEED_CINEMALAYA,
       restoredClassics: SEED_RESTORED,
-      regionalSpotlight: SEED_FILMS.filter((f) => f.tags.includes('regional-cinema') || f.language !== 'Filipino'),
+      regionalSpotlight: SEED_FILMS.filter(
+        (f) =>
+          f.tags.includes('regional-cinema') ||
+          (f.language !== 'Filipino' && f.language !== 'Tagalog')
+      ),
       trendingThisWeek: [...SEED_FILMS].sort((a, b) => (b.ratings_count || 0) - (a.ratings_count || 0)),
     };
   }

@@ -184,6 +184,12 @@ function RootNavigationLayout() {
           }}
         />
         <Stack.Screen
+          name="explore/browse"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
           name="verification/request"
           options={{
             presentation: 'modal',
