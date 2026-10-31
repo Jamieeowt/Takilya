@@ -17,29 +17,32 @@ interface FilterSheetProps {
 
 const GENRES = [
   'Drama',
-  'Social Realism',
   'Indie',
+  'Romance',
+  'Action',
+  'Horror',
+  'Social Realism',
   'Meta-Comedy',
   'Coming-of-Age',
-  'Action',
   'Psychological',
   'Classics',
 ];
 
 const DECADES = [
   { label: 'All Decades', value: null },
-  { label: 'Classics (<2000)', value: 'classics' },
+  { label: 'Classics', value: 'classics' },
   { label: '2010s', value: '2010s' },
   { label: '2020s', value: '2020s' },
-  { label: 'Latest 2026', value: '2026' },
+  { label: 'Latest', value: 'latest' },
 ];
 
 const PLATFORMS = [
   { label: 'All Platforms', value: null },
-  { label: 'Netflix PH', value: 'netflix' },
+  { label: 'Netflix', value: 'netflix' },
+  { label: 'Prime', value: 'prime' },
+  { label: 'Vivamax', value: 'vivamax' },
   { label: 'iWantTFC', value: 'iwanttfc' },
-  { label: 'JuanFlix / FDCP', value: 'juanflix' },
-  { label: 'Theaters / Festivals', value: 'theatrical' },
+  { label: 'Theatrical', value: 'theatrical' },
 ];
 
 const RATINGS = [

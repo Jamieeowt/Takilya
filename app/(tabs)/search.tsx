@@ -12,6 +12,7 @@ import { SearchFilterState } from '@/features/search/types';
 import {
   SearchBar,
   FilterSheet,
+  QuickFilterChips,
   RecentSearches,
   DiscoveryCarousels,
   SearchResultsGrid,
@@ -123,7 +124,15 @@ export default function SearchScreen() {
         }}
       />
 
-      {/* 2. Main Content Body */}
+      {/* 2. Horizontal Quick Filter Chips (Classics, 2010s, 2020s, Latest, Indie, Romance, Horror, Netflix, Prime, Vivamax, etc.) */}
+      <QuickFilterChips
+        filters={filters}
+        onUpdateFilters={setFilters}
+        onOpenFilterSheet={() => setIsFilterSheetOpen(true)}
+        activeFiltersCount={activeFiltersCount}
+      />
+
+      {/* 3. Main Content Body */}
       {!hasSearchOrFilters ? (
         // A. Idle State: Recent Searches & Curated Discovery Carousels
         <ScrollView
@@ -169,7 +178,7 @@ export default function SearchScreen() {
         </ScrollView>
       )}
 
-      {/* 3. Expandable Filter Bottom Sheet */}
+      {/* 4. Expandable Filter Bottom Sheet */}
       <FilterSheet
         visible={isFilterSheetOpen}
         onClose={() => setIsFilterSheetOpen(false)}
@@ -190,4 +199,3 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 });
-

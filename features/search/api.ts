@@ -132,6 +132,63 @@ const SEED_SEARCH_FILMS: SearchFilmItem[] = [
     streaming_platforms: ['iWantTFC'],
     screening_info: 'Gawad Urian Best Picture',
   },
+  {
+    id: 'cccccccc-0007-0000-0000-000000000000',
+    title: 'Never Not Love You',
+    original_title: 'Never Not Love You',
+    slug: 'never-not-love-you',
+    release_year: 2018,
+    runtime_minutes: 105,
+    language: 'Filipino',
+    mtrcb_rating: 'PG',
+    poster_url: 'https://images.unsplash.com/photo-1518173946687-a4c8a383392e?w=600&auto=format&fit=crop&q=80',
+    director: 'Antoinette Jadaone',
+    genres: ['Romance', 'Drama', 'Indie'],
+    critic_score: 91,
+    audience_score: 93,
+    synopsis: 'A young reckless couple tries to build their relationship and careers together in Manila and London.',
+    is_classic: false,
+    streaming_platforms: ['Netflix Philippines', 'Vivamax'],
+    screening_info: 'FAP Best Actress Winner',
+  },
+  {
+    id: 'cccccccc-0008-0000-0000-000000000000',
+    title: 'Midnight in a Perfect World',
+    original_title: 'Midnight in a Perfect World',
+    slug: 'midnight-in-a-perfect-world',
+    release_year: 2020,
+    runtime_minutes: 100,
+    language: 'Filipino',
+    mtrcb_rating: 'R-16',
+    poster_url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&auto=format&fit=crop&q=80',
+    director: 'Dodo Dayao',
+    genres: ['Horror', 'Psychological', 'Indie'],
+    critic_score: 90,
+    audience_score: 84,
+    synopsis: 'In an alternate dystopian futuristic Manila, mysterious blackouts erase citizens from existence.',
+    is_classic: false,
+    streaming_platforms: ['Prime Video', 'iWantTFC'],
+    screening_info: 'QCinema Critic Spotlight',
+  },
+  {
+    id: 'cccccccc-0009-0000-0000-000000000000',
+    title: 'Goyo: Ang Batang Heneral',
+    original_title: 'Goyo: Ang Batang Heneral',
+    slug: 'goyo-ang-batang-heneral',
+    release_year: 2018,
+    runtime_minutes: 155,
+    language: 'Filipino',
+    mtrcb_rating: 'PG',
+    poster_url: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=600&auto=format&fit=crop&q=80',
+    director: 'Jerrold Tarog',
+    genres: ['Action', 'Drama', 'Classics'],
+    critic_score: 92,
+    audience_score: 89,
+    synopsis: 'The flawed young general Gregorio del Pilar leads Filipino troops at the historic Battle of Tirad Pass.',
+    is_classic: false,
+    streaming_platforms: ['Netflix Philippines', 'Prime Video'],
+    screening_info: 'TBA Epic Historical Trilogy',
+  },
 ];
 
 const SEED_SCREENINGS: SearchScreeningItem[] = [
@@ -392,15 +449,16 @@ export async function searchEntitiesAndFilms(
         films = films.filter((f) => f.release_year >= 2010 && f.release_year <= 2019);
       } else if (filters.decade === '2020s') {
         films = films.filter((f) => f.release_year >= 2020 && f.release_year <= 2025);
-      } else if (filters.decade === '2026') {
-        films = films.filter((f) => f.release_year >= 2026);
+      } else if (filters.decade === 'latest' || filters.decade === '2026') {
+        films = films.filter((f) => f.release_year >= 2022);
       }
     }
 
     if (filters.streamingPlatform && filters.streamingPlatform !== 'all') {
       const pTarget = filters.streamingPlatform.toLowerCase();
       films = films.filter((f) =>
-        f.streaming_platforms?.some((p) => p.toLowerCase().includes(pTarget))
+        f.streaming_platforms?.some((p) => p.toLowerCase().includes(pTarget)) ||
+        (pTarget === 'theatrical' && Boolean(f.screening_info))
       );
     }
 
