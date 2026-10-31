@@ -143,15 +143,15 @@ values
 on conflict do nothing;
 
 insert into public.film_tags (film_id, tag_id)
-select 'cccccccc-0001-0000-0000-000000000000', id from public.tags where slug in ('restored-heritage', 'national-artist-masterwork')
+select 'cccccccc-0001-0000-0000-000000000000'::uuid, id from public.tags where slug in ('restored-heritage', 'national-artist-masterwork')
 union all
-select 'cccccccc-0002-0000-0000-000000000000', id from public.tags where slug in ('social-realism', 'national-artist-masterwork', 'restored-heritage')
+select 'cccccccc-0002-0000-0000-000000000000'::uuid, id from public.tags where slug in ('social-realism', 'national-artist-masterwork', 'restored-heritage')
 union all
-select 'cccccccc-0003-0000-0000-000000000000', id from public.tags where slug in ('indie', 'qcinema-selection')
+select 'cccccccc-0003-0000-0000-000000000000'::uuid, id from public.tags where slug in ('indie', 'qcinema-selection')
 union all
-select 'cccccccc-0004-0000-0000-000000000000', id from public.tags where slug in ('indie', 'regional-cinema', 'based-on-true-story', 'cinemalaya-winner')
+select 'cccccccc-0004-0000-0000-000000000000'::uuid, id from public.tags where slug in ('indie', 'regional-cinema', 'based-on-true-story', 'cinemalaya-winner')
 union all
-select 'cccccccc-0005-0000-0000-000000000000', id from public.tags where slug in ('indie', 'regional-cinema', 'qcinema-selection')
+select 'cccccccc-0005-0000-0000-000000000000'::uuid, id from public.tags where slug in ('indie', 'regional-cinema', 'qcinema-selection')
 on conflict do nothing;
 
 -- 8. Festivals & Editions
