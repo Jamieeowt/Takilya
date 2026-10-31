@@ -38,6 +38,24 @@ describe('Unit Test: YouTube URL Parsing (Prompt 5.1 & AGENTS.md)', () => {
     expect(extractYouTubeId(null)).toBe('');
     expect(extractYouTubeId(undefined)).toBe('');
     expect(extractYouTubeId('   ')).toBe('');
+    expect(extractYouTubeId('invalid-non-id')).toBe('');
+  });
+
+  it('validates canonical Philippine cinema trailer IDs', () => {
+    const canonicalTrailers = [
+      { film: 'Leonor Will Never Die', id: '7lMwbA9bUVo' },
+      { film: 'BuyBust', id: 'R8tHz3ZgJ4E' },
+      { film: 'On the Job', id: 'GSdh2IkQYxC' },
+      { film: 'Heneral Luna', id: 'I_tOzY_k34M' },
+      { film: 'Goyo: Ang Batang Heneral', id: '1fXn01_FvD0' },
+      { film: 'Himala', id: 'L_LUpnjgPso' },
+    ];
+
+    canonicalTrailers.forEach(({ film, id }) => {
+      expect(extractYouTubeId(id)).toBe(id);
+      expect(extractYouTubeId(`https://www.youtube.com/watch?v=${id}`)).toBe(id);
+      expect(extractYouTubeId(`https://youtu.be/${id}`)).toBe(id);
+    });
   });
 
   it('generates correct YouTube CDN thumbnail URLs', () => {

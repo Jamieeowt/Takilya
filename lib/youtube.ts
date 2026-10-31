@@ -21,21 +21,15 @@ export function extractYouTubeId(urlOrId?: string | null): string {
     return trimmed;
   }
 
-  // Match standard, short, embed, or shorts YouTube URLs
+  // Match standard, short, embed, live, or shorts YouTube URLs
   const regex =
-    /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([a-zA-Z0-9_-]{11})/;
+    /(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|live\/|watch\?(?:.*&)?v=|shorts\/))([a-zA-Z0-9_-]{11})/i;
   const match = trimmed.match(regex);
   if (match && match[1]) {
     return match[1];
   }
 
-  // Fallback: look for any 11-character sequence that looks like a video ID
-  const anyIdMatch = trimmed.match(/[a-zA-Z0-9_-]{11}/);
-  if (anyIdMatch && anyIdMatch[0]) {
-    return anyIdMatch[0];
-  }
-
-  return trimmed;
+  return '';
 }
 
 /**

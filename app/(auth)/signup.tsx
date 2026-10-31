@@ -10,22 +10,18 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import {
-  Film,
-  Mail,
-  Lock,
-  User,
-  AtSign,
+  ChevronLeft,
   Eye,
   EyeOff,
   AlertCircle,
   CheckCircle2,
-  ArrowRight,
+  Check,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { haptics } from '@/lib/haptics';
-import { radius, spacing, typography } from '@/lib/theme';
 import { useAuth } from '@/features/auth/AuthContext';
 import { signupSchema } from '@/features/auth/validation';
 
@@ -34,20 +30,35 @@ export default function SignupScreen() {
   const insets = useSafeAreaInsets();
   const { signUp, isLoading } = useAuth();
 
-  const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string | undefined>>({});
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSuccessConfirmation, setIsSuccessConfirmation] = useState(false);
 
+  const handleBack = () => {
+    haptics.light();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(auth)/welcome' as any);
+    }
+  };
+
   const handleSignup = async () => {
     setAuthError(null);
     setFieldErrors({});
+
+    if (!agreedToTerms) {
+      haptics.warning();
+      setFieldErrors({ terms: 'Please agree to the Terms and Content Policy to continue.' });
+      return;
+    }
 
     // 1. Zod Form Validation
     const validationResult = signupSchema.safeParse({
@@ -55,7 +66,7 @@ export default function SignupScreen() {
       displayName,
       email,
       password,
-      confirmPassword,
+      confirmPassword: password, // auto-matches password
     });
 
     if (!validationResult.success) {
@@ -92,14 +103,18 @@ export default function SignupScreen() {
       <View
         style={[
           styles.confirmationContainer,
-          { paddingTop: Math.max(insets.top + 40, 60) },
+          {
+            paddingTop: Math.max(insets.top + 40, 60),
+            paddingBottom: Math.max(insets.bottom + 24, 40),
+          },
         ]}>
+        <StatusBar style="light" />
         <View style={styles.confirmCard}>
           <View style={styles.confirmIconBadge}>
             <CheckCircle2 size={36} color="#FFFFFF" />
           </View>
 
-          <Text style={styles.confirmTitle}>Check Your Inbox</Text>
+          <Text style={styles.confirmTitle}>Check your inbox</Text>
 
           <Text style={styles.confirmText}>
             We've sent a verification link to{' '}
@@ -107,18 +122,16 @@ export default function SignupScreen() {
           </Text>
 
           <Text style={styles.confirmSubtitle}>
-            Tap the link in your email to confirm your account. When the confirmation page opens, tap{' '}
-            <Text style={styles.boldText}>"Open Takilya App"</Text> to return here automatically.
+            Tap the link in your email to confirm your account and start discovering Philippine cinema.
           </Text>
 
           <View style={styles.confirmActions}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Proceed to Sign In"
-              onPress={() => router.replace('/(auth)/login')}
+              onPress={() => router.replace('/(auth)/login' as any)}
               style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Proceed to Sign In</Text>
-              <ArrowRight size={16} color="#000000" />
+              <Text style={styles.primaryButtonText}>Proceed to sign in</Text>
             </Pressable>
 
             <Pressable
@@ -126,7 +139,7 @@ export default function SignupScreen() {
               accessibilityLabel="Change email or edit details"
               onPress={() => setIsSuccessConfirmation(false)}
               style={styles.secondaryBtn}>
-              <Text style={styles.secondaryBtnText}>Edit Details</Text>
+              <Text style={styles.secondaryBtnText}>Edit details</Text>
             </Pressable>
           </View>
         </View>
@@ -138,22 +151,34 @@ export default function SignupScreen() {
     <KeyboardAvoidingView
       style={styles.keyboardContainer}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: Math.max(insets.top + 24, 48) },
+          {
+            paddingTop: Math.max(insets.top + 16, 50),
+            paddingBottom: Math.max(insets.bottom + 24, 40),
+          },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        {/* Brand Header */}
-        <View style={styles.brandHeader}>
-          <View style={styles.logoBadge}>
-            <Film size={28} color="#FFFFFF" />
-          </View>
-          <Text style={styles.title}>Join Takilya</Text>
-          <Text style={styles.subtitle}>
-            Connect with Philippine cinema. Track festivals, rate films, and write reviews.
-          </Text>
+        {/* 44px Back Chevron Button */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back to welcome"
+          onPress={handleBack}
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.backButton,
+            pressed && styles.buttonPressed,
+          ]}>
+          <ChevronLeft size={24} color="#FFFFFF" strokeWidth={2} />
+        </Pressable>
+
+        {/* Heading */}
+        <View style={styles.headingBlock}>
+          <Text style={styles.title}>Create account</Text>
+          <Text style={styles.subtitle}>Free to join. Takes under a minute.</Text>
         </View>
 
         {/* Auth Error Banner */}
@@ -168,20 +193,16 @@ export default function SignupScreen() {
         <View style={styles.form}>
           {/* Display Name */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Display Name</Text>
+            <Text style={styles.label}>Display name</Text>
             <View
               style={[
                 styles.inputWrapper,
                 fieldErrors.displayName && styles.inputWrapperError,
               ]}>
-              <User
-                size={18}
-                color={fieldErrors.displayName ? '#FFFFFF' : '#8A8A8A'}
-              />
               <TextInput
                 accessibilityLabel="Display Name"
                 style={styles.input}
-                placeholder="Jaime Gerolaga"
+                placeholder="Juan dela Cruz"
                 placeholderTextColor="#8A8A8A"
                 value={displayName}
                 onChangeText={(text) => {
@@ -206,14 +227,10 @@ export default function SignupScreen() {
                 styles.inputWrapper,
                 fieldErrors.username && styles.inputWrapperError,
               ]}>
-              <AtSign
-                size={18}
-                color={fieldErrors.username ? '#FFFFFF' : '#8A8A8A'}
-              />
               <TextInput
                 accessibilityLabel="Username"
                 style={styles.input}
-                placeholder="cinephile_ph"
+                placeholder="juandelacruz"
                 placeholderTextColor="#8A8A8A"
                 value={username}
                 onChangeText={(text) => {
@@ -233,20 +250,16 @@ export default function SignupScreen() {
 
           {/* Email */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email Address</Text>
+            <Text style={styles.label}>Email</Text>
             <View
               style={[
                 styles.inputWrapper,
                 fieldErrors.email && styles.inputWrapperError,
               ]}>
-              <Mail
-                size={18}
-                color={fieldErrors.email ? '#FFFFFF' : '#8A8A8A'}
-              />
               <TextInput
                 accessibilityLabel="Email address"
                 style={styles.input}
-                placeholder="name@example.com"
+                placeholder="you@example.com"
                 placeholderTextColor="#8A8A8A"
                 value={email}
                 onChangeText={(text) => {
@@ -274,14 +287,10 @@ export default function SignupScreen() {
                 styles.inputWrapper,
                 fieldErrors.password && styles.inputWrapperError,
               ]}>
-              <Lock
-                size={18}
-                color={fieldErrors.password ? '#FFFFFF' : '#8A8A8A'}
-              />
               <TextInput
                 accessibilityLabel="Password"
                 style={styles.input}
-                placeholder="At least 6 characters"
+                placeholder="At least 8 characters"
                 placeholderTextColor="#8A8A8A"
                 value={password}
                 onChangeText={(text) => {
@@ -312,66 +321,67 @@ export default function SignupScreen() {
             )}
           </View>
 
-          {/* Confirm Password */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Confirm Password</Text>
-            <View
-              style={[
-                styles.inputWrapper,
-                fieldErrors.confirmPassword && styles.inputWrapperError,
-              ]}>
-              <Lock
-                size={18}
-                color={fieldErrors.confirmPassword ? '#FFFFFF' : '#8A8A8A'}
-              />
-              <TextInput
-                accessibilityLabel="Confirm Password"
-                style={styles.input}
-                placeholder="Re-enter password"
-                placeholderTextColor="#8A8A8A"
-                value={confirmPassword}
-                onChangeText={(text) => {
-                  setConfirmPassword(text);
-                  if (fieldErrors.confirmPassword) {
-                    setFieldErrors((prev) => ({ ...prev, confirmPassword: undefined }));
-                  }
-                }}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                editable={!isLoading}
-              />
+          {/* Terms Agreement Checkbox (Min 44px tap target) */}
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: agreedToTerms }}
+            accessibilityLabel="I agree to the Terms and Content Policy"
+            onPress={() => {
+              haptics.selection();
+              setAgreedToTerms((prev) => !prev);
+              if (fieldErrors.terms) {
+                setFieldErrors((prev) => ({ ...prev, terms: undefined }));
+              }
+            }}
+            style={styles.termsRow}>
+            <View style={[styles.checkbox, agreedToTerms && styles.checkboxChecked]}>
+              {agreedToTerms && <Check size={14} color="#000000" strokeWidth={3} />}
             </View>
-            {fieldErrors.confirmPassword && (
-              <Text style={styles.fieldErrorText}>{fieldErrors.confirmPassword}</Text>
-            )}
-          </View>
+            <Text style={styles.termsLabel}>
+              I agree to the{' '}
+              <Text
+                style={styles.termsLink}
+                onPress={() => router.push('/legal/terms' as any)}>
+                Terms and Content Policy
+              </Text>.
+            </Text>
+          </Pressable>
+          {fieldErrors.terms && (
+            <Text style={styles.fieldErrorText}>{fieldErrors.terms}</Text>
+          )}
 
-          {/* Sign Up Button */}
+          {/* Create Account Primary Button */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Create Takilya Account"
+            accessibilityLabel="Create account"
             onPress={handleSignup}
             disabled={isLoading}
-            style={[styles.primaryButton, isLoading && styles.primaryButtonDisabled]}>
+            style={({ pressed }) => [
+              styles.primaryButton,
+              isLoading && styles.primaryButtonDisabled,
+              pressed && !isLoading && styles.buttonPressed,
+            ]}>
             {isLoading ? (
               <ActivityIndicator color="#000000" size="small" />
             ) : (
-              <Text style={styles.primaryButtonText}>Create Account</Text>
+              <Text style={styles.primaryButtonText}>Create account</Text>
             )}
           </Pressable>
         </View>
 
+        <View style={styles.spacer} />
+
         {/* Footer Navigation */}
         <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Already have an account?</Text>
-          <Link href={"/(auth)/login" as any} asChild>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Navigate to sign in"
-              style={styles.linkButton}>
-              <Text style={styles.linkButtonText}>Sign In</Text>
-            </Pressable>
-          </Link>
+          <Text style={styles.footerText}>Already have an account? </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Navigate to sign in"
+            hitSlop={8}
+            onPress={() => router.push('/(auth)/login' as any)}
+            style={styles.linkButton}>
+            <Text style={styles.linkButtonText}>Sign in</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -384,40 +394,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
   },
   scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl,
-    gap: spacing.lg,
+    flexGrow: 1,
+    paddingHorizontal: 28,
+    gap: 20,
   },
-  brandHeader: {
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginLeft: -10,
     alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  logoBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: radius.full,
-    backgroundColor: '#141414',
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
+  },
+  headingBlock: {
+    gap: 10,
   },
   title: {
-    ...typography.title,
-    fontSize: 22,
+    fontFamily: Platform.select({
+      ios: 'Inter-ExtraBold',
+      android: 'Inter_800ExtraBold',
+      default: 'System',
+    }),
+    fontSize: 34,
     fontWeight: '800',
+    letterSpacing: -0.8,
+    lineHeight: 38,
     color: '#FFFFFF',
-    letterSpacing: -0.3,
   },
   subtitle: {
-    ...typography.body,
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#8A8A8A',
-    textAlign: 'center',
-    paddingHorizontal: spacing.sm,
+    fontFamily: Platform.select({
+      ios: 'Inter-Regular',
+      android: 'Inter_400Regular',
+      default: 'System',
+    }),
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#A3A3A3',
   },
   errorBanner: {
     flexDirection: 'row',
@@ -425,39 +437,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#141414',
     borderColor: 'rgba(255, 255, 255, 0.25)',
     borderWidth: 1,
-    borderRadius: radius.sm,
-    padding: spacing.md,
-    gap: spacing.sm,
+    borderRadius: 14,
+    padding: 14,
+    gap: 10,
   },
   errorBannerText: {
     flex: 1,
     color: '#D4D4D4',
     fontSize: 13,
     fontWeight: '500',
+    lineHeight: 18,
   },
   form: {
-    gap: spacing.md,
+    gap: 12,
   },
   inputGroup: {
     gap: 6,
   },
   label: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#D4D4D4',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
+    fontFamily: Platform.select({
+      ios: 'Inter-SemiBold',
+      android: 'Inter_600SemiBold',
+      default: 'System',
+    }),
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#A3A3A3',
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0A0A0A',
-    borderRadius: radius.sm,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: '#141414',
+    borderRadius: 14,
+    borderColor: '#2E2E2E',
     borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    minHeight: 48,
-    gap: spacing.sm,
+    paddingHorizontal: 16,
+    height: 50,
   },
   inputWrapperError: {
     borderColor: '#FFFFFF',
@@ -465,132 +480,201 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     color: '#FFFFFF',
-    fontSize: 14,
-    paddingVertical: spacing.sm,
+    fontFamily: Platform.select({
+      ios: 'Inter-Regular',
+      android: 'Inter_400Regular',
+      default: 'System',
+    }),
+    fontSize: 16,
+    paddingVertical: 0,
   },
   eyeBtn: {
     minWidth: 44,
     minHeight: 44,
     justifyContent: 'center',
+    alignItems: 'flex-end',
+  },
+  termsRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    minHeight: 44,
+    paddingVertical: 4,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#5C5C5C',
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
+  },
+  termsLabel: {
+    flex: 1,
+    fontFamily: Platform.select({
+      ios: 'Inter-Regular',
+      android: 'Inter_400Regular',
+      default: 'System',
+    }),
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#A3A3A3',
+  },
+  termsLink: {
+    color: '#FFFFFF',
+    textDecorationLine: 'underline',
   },
   fieldErrorText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#D4D4D4',
     fontWeight: '500',
+    marginTop: 2,
   },
   primaryButton: {
-    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
-    borderRadius: radius.full,
-    minHeight: 48,
+    borderRadius: 27,
+    height: 54,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    marginTop: spacing.sm,
+    marginTop: 8,
   },
   primaryButtonDisabled: {
     opacity: 0.6,
   },
   primaryButtonText: {
+    fontFamily: Platform.select({
+      ios: 'Inter-Bold',
+      android: 'Inter_700Bold',
+      default: 'System',
+    }),
     color: '#000000',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
-    letterSpacing: 0.2,
+  },
+  buttonPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.99 }],
+  },
+  spacer: {
+    flexGrow: 1,
+    minHeight: 16,
   },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: spacing.sm,
+    paddingVertical: 12,
   },
   footerText: {
-    color: '#8A8A8A',
-    fontSize: 13,
+    fontFamily: Platform.select({
+      ios: 'Inter-Regular',
+      android: 'Inter_400Regular',
+      default: 'System',
+    }),
+    color: '#A3A3A3',
+    fontSize: 14,
   },
   linkButton: {
     minHeight: 44,
     justifyContent: 'center',
   },
   linkButtonText: {
+    fontFamily: Platform.select({
+      ios: 'Inter-Bold',
+      android: 'Inter_700Bold',
+      default: 'System',
+    }),
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
+    textDecorationLine: 'underline',
   },
-  // Confirmation state styles
   confirmationContainer: {
     flex: 1,
     backgroundColor: '#000000',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: 28,
     justifyContent: 'center',
-    alignItems: 'center',
   },
   confirmCard: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: '#141414',
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: radius.cardLarge,
-    padding: spacing.xl,
+    borderColor: '#2E2E2E',
+    padding: 24,
     alignItems: 'center',
+    gap: 16,
   },
   confirmIconBadge: {
     width: 64,
     height: 64,
-    borderRadius: radius.full,
-    backgroundColor: '#141414',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 32,
+    backgroundColor: '#1F1F1F',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
   },
   confirmTitle: {
-    ...typography.title,
-    fontSize: 20,
-    fontWeight: '800',
+    fontFamily: Platform.select({
+      ios: 'Inter-Bold',
+      android: 'Inter_700Bold',
+      default: 'System',
+    }),
+    fontSize: 22,
+    fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: spacing.xs,
-    textAlign: 'center',
   },
   confirmText: {
-    ...typography.body,
-    fontSize: 14,
-    lineHeight: 20,
+    fontFamily: Platform.select({
+      ios: 'Inter-Regular',
+      android: 'Inter_400Regular',
+      default: 'System',
+    }),
+    fontSize: 15,
+    lineHeight: 22,
     color: '#D4D4D4',
     textAlign: 'center',
-    marginBottom: spacing.sm,
   },
   emailHighlight: {
     color: '#FFFFFF',
     fontWeight: '700',
   },
   confirmSubtitle: {
-    ...typography.caption,
-    fontSize: 12,
+    fontFamily: Platform.select({
+      ios: 'Inter-Regular',
+      android: 'Inter_400Regular',
+      default: 'System',
+    }),
+    fontSize: 13,
     lineHeight: 18,
     color: '#8A8A8A',
     textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  boldText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
   },
   confirmActions: {
     width: '100%',
-    gap: spacing.sm,
+    gap: 12,
+    marginTop: 8,
   },
   secondaryBtn: {
-    minHeight: 44,
-    justifyContent: 'center',
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#5C5C5C',
   },
   secondaryBtnText: {
-    fontSize: 13,
+    fontFamily: Platform.select({
+      ios: 'Inter-SemiBold',
+      android: 'Inter_600SemiBold',
+      default: 'System',
+    }),
+    fontSize: 14,
     fontWeight: '600',
-    color: '#8A8A8A',
+    color: '#FFFFFF',
   },
 });

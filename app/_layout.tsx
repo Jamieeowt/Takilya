@@ -63,17 +63,12 @@ function RootNavigationLayout() {
     if (isLoading) return;
 
     const group = segments[0] as string | undefined;
-    const subRoute = segments[1] as string | undefined;
-
     const inAuthGroup = group === '(auth)';
-    const isProtectedScreen =
-      (group === '(tabs)' && (subRoute === 'account' || subRoute === 'profile')) ||
-      (group === 'film' && subRoute === 'log-modal');
+    const inLegalGroup = group === 'legal';
 
-    if (!isAuthenticated && isProtectedScreen) {
-      // Prompt 1.4: Guard Account and logging/reviewing so guests are routed cleanly to login,
-      // while Feed, Search, and Explore remain publicly viewable without requiring authentication.
-      router.replace('/(auth)/login');
+    if (!isAuthenticated && !inAuthGroup && !inLegalGroup) {
+      // Mandatory welcome gate: redirect unauthenticated sessions to /(auth)/welcome
+      router.replace('/(auth)/welcome' as any);
     } else if (isAuthenticated && inAuthGroup) {
       // User is authenticated but currently on auth screens -> redirect cleanly to main tabs
       router.replace('/(tabs)');

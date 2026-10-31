@@ -1,12 +1,14 @@
 import React from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { haptics } from '@/lib/haptics';
 import { useAuth } from '@/features/auth/AuthContext';
 
 export default function TabLayout() {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -34,13 +36,16 @@ export default function TabLayout() {
         tabBarActiveTintColor: '#FFFFFF',
         tabBarInactiveTintColor: '#8A8A8A',
         tabBarStyle: {
-          backgroundColor: '#0A0A0A',
-          borderTopColor: 'rgba(255, 255, 255, 0.12)',
+          backgroundColor: '#000000',
+          borderTopColor: '#1A1A1A',
           borderTopWidth: 1,
           elevation: 0,
-          height: 60,
-          paddingBottom: 8,
+          height: 56 + (insets.bottom > 0 ? insets.bottom : 8),
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
           paddingTop: 8,
+        },
+        tabBarItemStyle: {
+          paddingBottom: insets.bottom > 0 ? 0 : 4,
         },
         tabBarLabelStyle: {
           fontSize: 11,

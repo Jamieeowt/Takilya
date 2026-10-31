@@ -7,16 +7,17 @@ import {
   Pressable,
   Modal,
   Dimensions,
+  Linking,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { Play, X, Video, Volume2, VolumeX, Flag } from 'lucide-react-native';
+import { Play, X, Video, Volume2, VolumeX, Flag, AlertCircle } from 'lucide-react-native';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import * as Haptics from 'expo-haptics';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { FilmTrailerItem } from '@/features/films/types';
 import { extractYouTubeId } from '@/lib/youtube';
 import { ReportModal } from '@/components/moderation';
-import { radius, typography } from '@/lib/theme';
+import { radius, typography, spacing } from '@/lib/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -28,6 +29,18 @@ export function FilmMediaSection({ trailers }: FilmMediaSectionProps) {
   const [activeVideo, setActiveVideo] = useState<FilmTrailerItem | null>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [isReporting, setIsReporting] = useState(false);
+  const [hasPlayerError, setHasPlayerError] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+
+  const cleanVideoId = React.useMemo(
+    () => extractYouTubeId(activeVideo?.youtube_id || (activeVideo as any)?.youtube_video_id),
+    [activeVideo?.youtube_id, (activeVideo as any)?.youtube_video_id]
+  );
+
+  React.useEffect(() => {
+    setHasPlayerError(false);
+    setIsReady(false);
+  }, [activeVideo?.id, cleanVideoId]);
 
   if (!trailers || trailers.length === 0) return null;
 
@@ -179,28 +192,76 @@ export function FilmMediaSection({ trailers }: FilmMediaSectionProps) {
             {/* Video Player */}
             {activeVideo && (
               <View style={styles.playerWrapper}>
-                <YoutubePlayer
-                  height={(SCREEN_WIDTH - 32) * (9 / 16)}
-                  width={SCREEN_WIDTH - 32}
-                  videoId={extractYouTubeId(activeVideo.youtube_id)}
-                  play={true}
-                  mute={isMuted}
-                  webViewStyle={{ backgroundColor: '#000000', opacity: 0.99 }}
-                  initialPlayerParams={{
-                    preventFullScreen: false,
-                    controls: true,
-                    modestbranding: true,
-                    rel: false,
-                    autoplay: true,
-                    iv_load_policy: 3,
-                  }}
-                  webViewProps={{
-                    androidLayerType: 'hardware',
-                    mediaPlaybackRequiresUserAction: false,
-                    allowsInlineMediaPlayback: true,
-                  }}
-                  onError={(err: unknown) => console.warn('[Takilya] Film Trailer Player Error:', err)}
-                />
+                {hasPlayerError || !cleanVideoId ? (
+                  <View style={styles.errorCard}>
+                    <AlertCircle size={32} color="#FFFFFF" />
+                    <Text style={styles.errorTitle}>Video unavailable</Text>
+                    <Text style={styles.errorSub}>The official trailer could not be loaded.</Text>
+                    <View style={styles.errorActionRow}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Retry loading video"
+                        onPress={() => {
+                          setHasPlayerError(false);
+                          setIsReady(false);
+                        }}
+                        style={styles.retryButton}>
+                        <Text style={styles.retryButtonText}>Retry</Text>
+                      </Pressable>
+                      {cleanVideoId ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Open trailer on YouTube"
+                          onPress={() => void Linking.openURL(`https://www.youtube.com/watch?v=${cleanVideoId}`)}
+                          style={styles.openYouTubeBtn}>
+                          <Text style={styles.openYouTubeText}>YouTube</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  </View>
+                ) : (
+                  <YoutubePlayer
+                    height={(SCREEN_WIDTH - 32) * (9 / 16)}
+                    width={SCREEN_WIDTH - 32}
+                    videoId={cleanVideoId}
+                    play={true}
+                    mute={isMuted}
+                    webViewStyle={{ backgroundColor: '#000000', opacity: 0.99 }}
+                    initialPlayerParams={{
+                      preventFullScreen: true,
+                      controls: true,
+                      modestbranding: true,
+                      rel: false,
+                      autoplay: true,
+                      iv_load_policy: 3,
+                    }}
+                    webViewProps={{
+                      androidLayerType: 'hardware',
+                      mediaPlaybackRequiresUserAction: false,
+                      allowsInlineMediaPlayback: true,
+                      source: {
+                        baseUrl: 'https://takilya.app',
+                      },
+                    }}
+                    onReady={() => {
+                      setIsReady(true);
+                      setHasPlayerError(false);
+                    }}
+                    onError={(error: string) => {
+                      console.warn(`[YouTube Player Error for ${cleanVideoId}]:`, error);
+                      // Only set error if it is an actual unrecoverable embed code (100, 101, 150)
+                      if (
+                        error === '100' ||
+                        error === '101' ||
+                        error === '150' ||
+                        error === 'video_not_found' ||
+                        error === 'embed_not_allowed'
+                      ) {
+                        setHasPlayerError(true);
+                      }
+                    }}
+                  />
+                )}
               </View>
             )}
 
@@ -477,6 +538,62 @@ const styles = StyleSheet.create({
     ...typography.mono,
     color: '#8A8A8A',
     fontSize: 10,
+  },
+  errorCard: {
+    backgroundColor: '#0A0A0A',
+    borderRadius: radius.md,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    padding: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.xs,
+    width: '100%',
+  },
+  errorTitle: {
+    ...typography.title,
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
+    marginTop: 4,
+  },
+  errorSub: {
+    ...typography.caption,
+    color: '#8A8A8A',
+    textAlign: 'center',
+    fontSize: 12,
+  },
+  errorActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  retryButton: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing.md,
+    minHeight: 40,
+    borderRadius: radius.xs,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  retryButtonText: {
+    color: '#000000',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  openYouTubeBtn: {
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    minHeight: 40,
+    borderRadius: radius.xs,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  openYouTubeText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
   },
 });
 

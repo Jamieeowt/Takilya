@@ -20,6 +20,12 @@ export default function AuthLayout() {
         },
       }}>
       <Stack.Screen
+        name="welcome"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
         name="login"
         options={{
           title: 'Sign In',

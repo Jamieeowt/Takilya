@@ -70,15 +70,15 @@ export function FeedVideoItem({
 
   // Safely extract the 11-character YouTube video ID (handles raw IDs, watch URLs, youtu.be, embed, shorts)
   const cleanVideoId = useMemo(
-    () => extractYouTubeId(item.youtube_video_id),
-    [item.youtube_video_id]
+    () => extractYouTubeId(item.youtube_video_id || (item as any).youtube_id),
+    [item.youtube_video_id, (item as any).youtube_id]
   );
 
   // Reset player error and ready state when the video changes
   useEffect(() => {
     setHasPlayerError(false);
     setReady(false);
-  }, [cleanVideoId]);
+  }, [item.id, cleanVideoId]);
 
   // Social engagement state (Strict Monochrome: White #FFFFFF / Grays)
   const [isLiked, setIsLiked] = useState(Boolean(item.is_liked));
@@ -336,7 +336,7 @@ export function FeedVideoItem({
     <View style={[styles.container, { height: itemHeight, width: itemWidth }]}>
       {/* 1. Edge-to-edge Video Layer */}
       <View style={styles.playerContainer} pointerEvents="box-none">
-        {hasPlayerError ? (
+        {hasPlayerError || !cleanVideoId ? (
           <View style={styles.errorOverlay}>
             {item.poster_url && (
               <Image
@@ -362,14 +362,16 @@ export function FeedVideoItem({
                   style={styles.retryButton}>
                   <Text style={styles.retryButtonText}>Retry</Text>
                 </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Open trailer on YouTube"
-                  onPress={() => void Linking.openURL(`https://www.youtube.com/watch?v=${cleanVideoId}`)}
-                  style={styles.openYouTubeBtn}>
-                  <Ionicons name="logo-youtube" size={16} color="#FFFFFF" />
-                  <Text style={styles.openYouTubeText}>YouTube</Text>
-                </Pressable>
+                {cleanVideoId ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Open trailer on YouTube"
+                    onPress={() => void Linking.openURL(`https://www.youtube.com/watch?v=${cleanVideoId}`)}
+                    style={styles.openYouTubeBtn}>
+                    <Ionicons name="logo-youtube" size={16} color="#FFFFFF" />
+                    <Text style={styles.openYouTubeText}>YouTube</Text>
+                  </Pressable>
+                ) : null}
               </View>
             </View>
           </View>
@@ -404,8 +406,11 @@ export function FeedVideoItem({
               webViewStyle={{ backgroundColor: '#000000', opacity: 0.99 }}
               webViewProps={{
                 androidLayerType: 'hardware',
-                mediaPlaybackRequiresUserAction: false,
                 allowsInlineMediaPlayback: true,
+                mediaPlaybackRequiresUserAction: false,
+                source: {
+                  baseUrl: 'https://takilya.app',
+                },
               }}
               initialPlayerParams={{
                 autoplay: true,
@@ -416,18 +421,15 @@ export function FeedVideoItem({
                 iv_load_policy: 3,
                 showClosedCaptions: false,
               }}
-              onError={(err: string) => {
-                console.warn('[Takilya Feed] YouTube Player Error:', err, 'Video ID:', cleanVideoId);
-                // Only flag permanent error for genuine failure
+              onError={(error: string) => {
+                console.warn(`[YouTube Player Error for ${cleanVideoId}]:`, error);
+                // Only set error if it is an actual unrecoverable embed code (100, 101, 150)
                 if (
-                  err === 'HTML5_error' ||
-                  err === 'video_not_found' ||
-                  err === 'embed_not_allowed' ||
-                  err === 'invalid_parameter' ||
-                  err === '100' ||
-                  err === '101' ||
-                  err === '150' ||
-                  err === '2'
+                  error === '100' ||
+                  error === '101' ||
+                  error === '150' ||
+                  error === 'video_not_found' ||
+                  error === 'embed_not_allowed'
                 ) {
                   setHasPlayerError(true);
                 }

@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
 import { colors, spacing, radius, typography } from '@/lib/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FeedType, FeedTrailerItem } from '@/features/feed/types';
 import { useInfiniteFeed } from '@/features/feed/useFeed';
 import { FeedVideoItem } from '@/features/feed/components/FeedVideoItem';
@@ -23,14 +24,15 @@ import { useAppStore } from '@/lib/store';
 import { useAuth } from '@/features/auth';
 
 const { width: SCREEN_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
-// Default fallback height: Window height minus bottom tabs height (60px)
-const DEFAULT_ITEM_HEIGHT = WINDOW_HEIGHT - 60;
 
 export default function FeedScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [feedType, setFeedType] = useState<FeedType>('latest');
-  const [containerHeight, setContainerHeight] = useState(DEFAULT_ITEM_HEIGHT);
+  const tabHeight = 56 + (insets.bottom > 0 ? insets.bottom : 8);
+  const initialItemHeight = WINDOW_HEIGHT - tabHeight;
+  const [containerHeight, setContainerHeight] = useState(initialItemHeight);
   const [visibleIndex, setVisibleIndex] = useState(0);
   const [selectedCommentItem, setSelectedCommentItem] = useState<FeedTrailerItem | null>(null);
 
@@ -121,7 +123,7 @@ export default function FeedScreen() {
         }
       }}>
       {/* 3. Translucent Blurred Top Bar with Segmented Toggle (expo-blur) */}
-      <View style={styles.topHeader} pointerEvents="box-none">
+      <View style={[styles.topHeader, { top: Math.max(insets.top + 8, 48) }]} pointerEvents="box-none">
         <BlurView intensity={70} tint="dark" style={styles.tabTogglePill}>
           <Pressable
             accessibilityRole="button"

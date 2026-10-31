@@ -113,6 +113,58 @@ values
     'PG',
     false,
     null
+  ),
+  (
+    'cccccccc-0006-0000-0000-000000000000',
+    'Heneral Luna',
+    'Heneral Luna',
+    'heneral-luna',
+    'General Antonio Luna faces intense opposition from his own compromised countrymen while commanding Philippine forces in the Philippine-American War.',
+    '2015-09-09',
+    118,
+    'Filipino',
+    'PG-13',
+    false,
+    '11111111-1111-1111-1111-111111111111'
+  ),
+  (
+    'cccccccc-0007-0000-0000-000000000000',
+    'Goyo: Ang Batang Heneral',
+    'Goyo: Ang Batang Heneral',
+    'goyo-ang-batang-heneral',
+    'The story of the young and flawed General Gregorio del Pilar as he faces the historic last stand of the Philippine Revolutionary Army at Tirad Pass.',
+    '2018-09-05',
+    155,
+    'Filipino',
+    'PG-13',
+    false,
+    '11111111-1111-1111-1111-111111111111'
+  ),
+  (
+    'cccccccc-0009-0000-0000-000000000000',
+    'BuyBust',
+    'BuyBust',
+    'buybust',
+    'An elite anti-narcotics squad finds themselves trapped in a labyrinthine Manila slum during a nightmarish drug buy-bust gone wrong.',
+    '2018-08-01',
+    127,
+    'Filipino',
+    'R-16',
+    false,
+    '22222222-2222-2222-2222-222222222222'
+  ),
+  (
+    'cccccccc-0010-0000-0000-000000000000',
+    'On the Job',
+    'On the Job',
+    'on-the-job',
+    'Two prison inmates are temporarily released by influential politicians to carry out political executions while two detectives investigate.',
+    '2013-08-28',
+    121,
+    'Filipino',
+    'R-16',
+    false,
+    '11111111-1111-1111-1111-111111111111'
   )
 on conflict (slug) do nothing;
 
@@ -202,7 +254,11 @@ values
   ('20202020-0002-0000-0000-000000000000', 'cccccccc-0003-0000-0000-000000000000', '7lMwbA9bUVo', 'Leonor Will Never Die Official Sundance US Trailer', 'official', 'studio', '44444444-4444-4444-4444-444444444444', 38200),
   ('20202020-0003-0000-0000-000000000000', 'cccccccc-0004-0000-0000-000000000000', '8b1T8k5qP8A', 'John Denver Trending Cinemalaya Official Clip', 'clip', 'festival', 'dddddddd-0001-0000-0000-000000000000', 19800),
   ('20202020-0004-0000-0000-000000000000', 'cccccccc-0005-0000-0000-000000000000', 'kJQP7kiw5Fk', 'Cleaners QCinema Coming-of-Age Trailer', 'official', 'admin', '11111111-1111-1111-1111-111111111111', 28500),
-  ('20202020-0005-0000-0000-000000000000', 'cccccccc-0002-0000-0000-000000000000', 'vP88v2B4a_A', 'Maynila sa mga Kuko ng Liwanag World Cinema Project Teaser', 'official', 'admin', '11111111-1111-1111-1111-111111111111', 32400)
+  ('20202020-0005-0000-0000-000000000000', 'cccccccc-0002-0000-0000-000000000000', 'vP88v2B4a_A', 'Maynila sa mga Kuko ng Liwanag World Cinema Project Teaser', 'official', 'admin', '11111111-1111-1111-1111-111111111111', 32400),
+  ('20202020-0006-0000-0000-000000000000', 'cccccccc-0006-0000-0000-000000000000', 'I_tOzY_k34M', 'Heneral Luna Official Epic Theatrical Trailer', 'official', 'studio', '11111111-1111-1111-1111-111111111111', 89000),
+  ('20202020-0007-0000-0000-000000000000', 'cccccccc-0007-0000-0000-000000000000', '1fXn01_FvD0', 'Goyo: Ang Batang Heneral The Young General Official Trailer', 'official', 'studio', '11111111-1111-1111-1111-111111111111', 64200),
+  ('20202020-0009-0000-0000-000000000000', 'cccccccc-0009-0000-0000-000000000000', 'R8tHz3ZgJ4E', 'BuyBust Official Well Go USA Action Trailer', 'official', 'studio', '22222222-2222-2222-2222-222222222222', 54200),
+  ('20202020-0010-0000-0000-000000000000', 'cccccccc-0010-0000-0000-000000000000', 'GSdh2IkQYxC', 'On the Job Cannes Directors Fortnight Official Trailer', 'official', 'studio', '11111111-1111-1111-1111-111111111111', 72000)
 on conflict do nothing;
 
 -- 11. Promoted Slots (clearly marked)
