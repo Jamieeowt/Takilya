@@ -1,7 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/lib/theme';
 
 export default function TabLayout() {
   return (
@@ -9,24 +8,24 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: true,
         headerStyle: {
-          backgroundColor: colors.background.secondary,
-          borderBottomColor: colors.border.subtle,
+          backgroundColor: '#000000',
+          borderBottomColor: 'rgba(255, 255, 255, 0.12)',
           borderBottomWidth: 1,
           elevation: 0,
           shadowOpacity: 0,
         },
         headerTitleStyle: {
-          color: colors.text.primary,
+          color: '#FFFFFF',
           fontWeight: '700',
           fontSize: 18,
           letterSpacing: 0.5,
         },
-        headerTintColor: colors.gold.primary,
-        tabBarActiveTintColor: colors.gold.primary,
-        tabBarInactiveTintColor: colors.text.tertiary,
+        headerTintColor: '#FFFFFF',
+        tabBarActiveTintColor: '#FFFFFF',
+        tabBarInactiveTintColor: '#8A8A8A',
         tabBarStyle: {
-          backgroundColor: colors.background.secondary,
-          borderTopColor: colors.border.subtle,
+          backgroundColor: '#0A0A0A',
+          borderTopColor: 'rgba(255, 255, 255, 0.12)',
           borderTopWidth: 1,
           elevation: 0,
           height: 60,
@@ -49,7 +48,22 @@ export default function TabLayout() {
             <Ionicons
               name={focused ? 'film' : 'film-outline'}
               size={22}
-              color={typeof color === 'string' ? color : colors.gold.primary}
+              color={typeof color === 'string' ? color : '#FFFFFF'}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="search"
+        options={{
+          title: 'Search',
+          tabBarLabel: 'Search',
+          headerShown: false,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'search' : 'search-outline'}
+              size={22}
+              color={typeof color === 'string' ? color : '#FFFFFF'}
             />
           ),
         }}
@@ -63,7 +77,7 @@ export default function TabLayout() {
             <Ionicons
               name={focused ? 'compass' : 'compass-outline'}
               size={22}
-              color={typeof color === 'string' ? color : colors.gold.primary}
+              color={typeof color === 'string' ? color : '#FFFFFF'}
             />
           ),
         }}
@@ -77,7 +91,7 @@ export default function TabLayout() {
             <Ionicons
               name={focused ? 'star' : 'star-outline'}
               size={22}
-              color={typeof color === 'string' ? color : colors.gold.primary}
+              color={typeof color === 'string' ? color : '#FFFFFF'}
             />
           ),
         }}
@@ -91,7 +105,7 @@ export default function TabLayout() {
             <Ionicons
               name={focused ? 'person' : 'person-outline'}
               size={22}
-              color={typeof color === 'string' ? color : colors.gold.primary}
+              color={typeof color === 'string' ? color : '#FFFFFF'}
             />
           ),
         }}
