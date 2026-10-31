@@ -1024,3 +1024,69 @@ export async function submitFilmReview(
   );
 }
 
+export async function logFilmAndReview(
+  payload: import('./types').LogFilmPayload
+): Promise<{
+  rating: number;
+  reviewSaved: boolean;
+  watchHistorySaved: boolean;
+}> {
+  // 1. Upsert into ratings
+  const { error: ratingErr } = await supabase.from('ratings').upsert(
+    {
+      film_id: payload.filmId,
+      user_id: payload.userId,
+      score: payload.rating,
+    },
+    { onConflict: 'film_id,user_id' }
+  );
+  if (ratingErr) {
+    console.warn('ratings upsert error:', ratingErr);
+  }
+
+  // 2. Upsert into reviews (if review text exists)
+  let reviewSaved = false;
+  if (payload.reviewBody && payload.reviewBody.trim().length > 0) {
+    const { error: reviewErr } = await supabase.from('reviews').upsert(
+      {
+        film_id: payload.filmId,
+        user_id: payload.userId,
+        title: payload.reviewTitle?.trim() || null,
+        body: payload.reviewBody.trim(),
+        has_spoilers: Boolean(payload.hasSpoilers),
+      },
+      { onConflict: 'film_id,user_id' }
+    );
+    if (!reviewErr) {
+      reviewSaved = true;
+    } else {
+      console.warn('reviews upsert error:', reviewErr);
+    }
+  }
+
+  // 3. Insert into watch_history
+  let watchHistorySaved = false;
+  try {
+    const { error: watchErr } = await supabase.from('watch_history').insert({
+      film_id: payload.filmId,
+      user_id: payload.userId,
+      watched_date: payload.watchedDate || new Date().toISOString().split('T')[0],
+      is_rewatch: Boolean(payload.isRewatch),
+      medium: payload.medium || 'digital_streaming',
+      rating: payload.rating,
+      notes: payload.reviewTitle || null,
+    });
+    if (!watchErr) {
+      watchHistorySaved = true;
+    }
+  } catch (err) {
+    console.warn('watch_history insert error:', err);
+  }
+
+  return {
+    rating: payload.rating,
+    reviewSaved,
+    watchHistorySaved,
+  };
+}
+

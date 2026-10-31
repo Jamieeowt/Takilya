@@ -155,3 +155,17 @@ export interface FilmDetailFull {
     user_review: FilmReviewItem | null;
   };
 }
+
+export type WatchMedium = 'in_cinema' | 'physical_media' | 'digital_streaming' | 'other';
+
+export interface LogFilmPayload {
+  filmId: string;
+  userId: string;
+  rating: number; // 0.5 to 5.0
+  reviewTitle?: string;
+  reviewBody?: string;
+  hasSpoilers?: boolean;
+  watchedDate?: string; // YYYY-MM-DD
+  isRewatch?: boolean;
+  medium?: WatchMedium;
+}

@@ -27,7 +27,9 @@ import {
   useMarkFilmWatched,
   useSubmitFilmRating,
   useSubmitFilmReview,
+  useLogFilmAndReview,
 } from '@/features/films/useFilm';
+import { WatchMedium } from '@/features/films/types';
 import {
   FilmHeroSection,
   FilmRatingsSection,
@@ -38,6 +40,7 @@ import {
   FilmReviewsSection,
   FilmStickyActionBar,
   FilmRateModal,
+  LogReviewSheet,
 } from '@/components/film';
 import { GlassHeader } from '@/components/ui/GlassHeader';
 import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
@@ -77,6 +80,7 @@ export default function FilmDetailScreen() {
   const markWatchedMutation = useMarkFilmWatched();
   const submitRatingMutation = useSubmitFilmRating();
   const submitReviewMutation = useSubmitFilmReview();
+  const logFilmMutation = useLogFilmAndReview();
 
   // Optimistic local overrides for instant responsiveness
   const [localWatchlist, setLocalWatchlist] = useState<boolean | null>(null);
@@ -185,33 +189,31 @@ export default function FilmDetailScreen() {
     }
   };
 
-  const handleSaveRatingReview = (data: {
-    score: number;
-    title: string;
-    body: string;
-    hasSpoilers: boolean;
+  const handleSaveLogReview = (data: {
+    rating: number;
+    reviewTitle?: string;
+    reviewBody?: string;
+    hasSpoilers?: boolean;
+    watchedDate?: string;
+    isRewatch?: boolean;
+    medium?: WatchMedium;
   }) => {
     if (!film) return;
-    setLocalUserRating(data.score);
+    setLocalUserRating(data.rating);
     setLocalWatched(true);
 
     if (user) {
-      if (data.body.trim()) {
-        submitReviewMutation.mutate({
-          filmId: film.id,
-          userId: user.id,
-          title: data.title,
-          body: data.body,
-          hasSpoilers: data.hasSpoilers,
-          score: data.score,
-        });
-      } else {
-        submitRatingMutation.mutate({
-          filmId: film.id,
-          userId: user.id,
-          score: data.score,
-        });
-      }
+      logFilmMutation.mutate({
+        filmId: film.id,
+        userId: user.id,
+        rating: data.rating,
+        reviewTitle: data.reviewTitle,
+        reviewBody: data.reviewBody,
+        hasSpoilers: data.hasSpoilers,
+        watchedDate: data.watchedDate,
+        isRewatch: data.isRewatch,
+        medium: data.medium,
+      });
     }
   };
 
@@ -392,18 +394,20 @@ export default function FilmDetailScreen() {
         onOpenRateModal={() => setIsRateModalOpen(true)}
       />
 
-      {/* 4. Rating & Review Modal */}
-      <FilmRateModal
+      {/* 4. Prompt 2.4: Log & Review Bottom Sheet */}
+      <LogReviewSheet
         visible={isRateModalOpen}
         onClose={() => setIsRateModalOpen(false)}
+        filmId={film.id}
         filmTitle={film.title}
-        initialScore={userRating}
+        releaseYear={film.release_year}
+        posterUrl={film.poster_url}
+        initialRating={userRating}
         initialReviewTitle={film.user_state?.user_review?.title}
         initialReviewBody={film.user_state?.user_review?.body}
         initialHasSpoilers={film.user_state?.user_review?.has_spoilers}
-        onSubmit={handleSaveRatingReview}
-        onRemoveRating={handleRemoveRating}
-        isSubmitting={submitRatingMutation.isPending || submitReviewMutation.isPending}
+        onSave={handleSaveLogReview}
+        isSubmitting={logFilmMutation.isPending}
       />
     </View>
   );

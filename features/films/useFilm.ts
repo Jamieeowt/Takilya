@@ -5,8 +5,9 @@ import {
   markFilmWatched,
   submitFilmRating,
   submitFilmReview,
+  logFilmAndReview,
 } from './api';
-import { FilmDetailFull } from './types';
+import { FilmDetailFull, LogFilmPayload } from './types';
 
 export function useFilmDetail(filmId: string, userId?: string | null) {
   return useQuery<FilmDetailFull>({
@@ -92,6 +93,8 @@ export function useSubmitFilmRating() {
   });
 }
 
+
+
 export function useSubmitFilmReview() {
   const queryClient = useQueryClient();
 
@@ -121,4 +124,82 @@ export function useSubmitFilmReview() {
     },
   });
 }
+
+export function useLogFilmAndReview() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: LogFilmPayload) => logFilmAndReview(payload),
+    onMutate: async (newLog: LogFilmPayload) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['filmDetail', newLog.filmId] });
+
+      // Snapshot previous value
+      const previousFilmDetail = queryClient.getQueryData<FilmDetailFull>([
+        'filmDetail',
+        newLog.filmId,
+        newLog.userId,
+      ]);
+
+      // Optimistically update film detail
+      if (previousFilmDetail) {
+        queryClient.setQueryData<FilmDetailFull>(
+          ['filmDetail', newLog.filmId, newLog.userId],
+          {
+            ...previousFilmDetail,
+            user_state: {
+              ...previousFilmDetail.user_state,
+              is_watched: true,
+              user_rating: newLog.rating,
+              user_review: newLog.reviewBody
+                ? {
+                    id: 'optimistic-rev-' + Date.now(),
+                    film_id: newLog.filmId,
+                    user_id: newLog.userId,
+                    user_name: 'You',
+                    user_username: 'current_user',
+                    user_role: 'user',
+                    rating: newLog.rating,
+                    title: newLog.reviewTitle || null,
+                    body: newLog.reviewBody,
+                    has_spoilers: Boolean(newLog.hasSpoilers),
+                    is_critic_review: false,
+                    created_at: new Date().toISOString(),
+                    upvotes_count: 0,
+                  }
+                : previousFilmDetail.user_state.user_review,
+            },
+          }
+        );
+      }
+
+      return { previousFilmDetail };
+    },
+    onError: (_, newLog, context) => {
+      if (context?.previousFilmDetail) {
+        queryClient.setQueryData(
+          ['filmDetail', newLog.filmId, newLog.userId],
+          context.previousFilmDetail
+        );
+      }
+    },
+    onSettled: (_, __, newLog) => {
+      void queryClient.invalidateQueries({
+        queryKey: ['filmDetail', newLog.filmId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['userProfile'],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['reviews'],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['watchHistory'],
+      });
+    },
+  });
+}
+
+
+
 

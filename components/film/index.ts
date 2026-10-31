@@ -8,4 +8,5 @@ export * from './FilmMediaSection';
 export * from './FilmReviewsSection';
 export * from './FilmStickyActionBar';
 export * from './FilmRateModal';
+export * from './LogReviewSheet';
 
