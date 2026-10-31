@@ -10,7 +10,11 @@
     "backgroundColor": "#000000",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.takilya.app"
+      "bundleIdentifier": "com.takilya.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Takilya needs access to your camera to capture a profile avatar.",
+        "NSPhotoLibraryUsageDescription": "Takilya needs access to your photo library to select a profile avatar."
+      }
     },
     "android": {
       "package": "com.takilya.app",
@@ -20,6 +24,13 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -39,7 +50,14 @@
       ],
       "expo-secure-store",
       "expo-font",
-      "expo-image"
+      "expo-image",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Takilya needs access to your photos to upload a profile avatar.",
+          "cameraPermission": "Takilya needs access to your camera to take a profile avatar photo."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
