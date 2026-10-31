@@ -325,17 +325,18 @@ export function ThemeProvider({
   const isDark = theme === 'dark';
   const tokens = isDark ? darkTokens : (lightTokens as unknown as ThemeTokens);
 
-  return (
-    <ThemeContext.Provider
-      value={{
+  return React.createElement(
+    ThemeContext.Provider,
+    {
+      value: {
         theme,
         isDark,
         tokens,
         setTheme,
         toggleTheme,
-      }}>
-      {children}
-    </ThemeContext.Provider>
+      },
+    },
+    children
   );
 }
 
