@@ -8,6 +8,9 @@ import { PosterCard, PosterCardFilm } from '@/components/ui/PosterCard';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
+import { PosterRow } from '@/components/ui/PosterRow';
+import { useAuth } from '@/features/auth';
+import { useRecommendedFilms } from '@/features/films/useFilm';
 import { radius, spacing, typography } from '@/lib/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -31,8 +34,22 @@ export function ProfileWatchlistTab({
   onRemoveFromWatchlist,
 }: ProfileWatchlistTabProps) {
   const router = useRouter();
+  const { user } = useAuth();
+  const { data: recommendedData = [] } = useRecommendedFilms(user?.id);
   const [selectedFilter, setSelectedFilter] = useState('All');
   const [sortBy, setSortBy] = useState<SortOption>('date_added');
+
+  const recommendedFilms: PosterCardFilm[] = useMemo(() => {
+    return (recommendedData || []).map((film) => ({
+      id: film.id,
+      title: film.title,
+      release_year: film.release_year,
+      poster_url: film.poster_url,
+      director: film.director,
+      critic_score: film.critic_score,
+      audience_score: film.audience_score,
+    }));
+  }, [recommendedData]);
 
   // Filter & Sort
   const filteredAndSortedList = useMemo(() => {
@@ -100,6 +117,15 @@ export function ProfileWatchlistTab({
             icon={<Plus size={16} color="#000000" />}
             style={styles.emptyCta}
           />
+        )}
+        {recommendedFilms.length > 0 && (
+          <View style={styles.emptyRecommendationShelf}>
+            <PosterRow
+              title="Recommended based on your Watchlist"
+              subtitle="Philippine films matched with your taste and saved titles"
+              films={recommendedFilms}
+            />
+          </View>
         )}
       </View>
     );
@@ -170,6 +196,17 @@ export function ProfileWatchlistTab({
               </View>
             );
           })}
+        </View>
+      )}
+
+      {/* Recommendation shelf at the bottom of the user's Watchlist */}
+      {recommendedFilms.length > 0 && (
+        <View style={styles.bottomRecommendationShelf}>
+          <PosterRow
+            title="Recommended based on your Watchlist"
+            subtitle="Philippine films matched with your taste and saved titles"
+            films={recommendedFilms}
+          />
         </View>
       )}
     </View>
@@ -251,6 +288,14 @@ const styles = StyleSheet.create({
   noFilterText: {
     fontSize: 13,
     color: '#8A8A8A',
+  },
+  bottomRecommendationShelf: {
+    marginTop: spacing.xl,
+    marginHorizontal: -spacing.md,
+  },
+  emptyRecommendationShelf: {
+    marginTop: spacing.xl * 1.5,
+    width: '100%',
   },
 });
 

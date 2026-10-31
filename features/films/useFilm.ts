@@ -6,8 +6,10 @@ import {
   submitFilmRating,
   submitFilmReview,
   logFilmAndReview,
+  fetchRecommendedFilms,
+  fetchSimilarFilms,
 } from './api';
-import { FilmDetailFull, LogFilmPayload } from './types';
+import { FilmDetailFull, LogFilmPayload, RecommendedFilmItem, SimilarFilmItem } from './types';
 import { enqueueMutation } from '@/lib/offline';
 import { haptics } from '@/lib/haptics';
 
@@ -216,7 +218,27 @@ export function useLogFilmAndReview() {
       void queryClient.invalidateQueries({
         queryKey: ['watchHistory'],
       });
+      void queryClient.invalidateQueries({
+        queryKey: ['recommendedFilms'],
+      });
     },
+  });
+}
+
+export function useRecommendedFilms(userId?: string | null) {
+  return useQuery<RecommendedFilmItem[]>({
+    queryKey: ['recommendedFilms', userId || 'anonymous'],
+    queryFn: () => fetchRecommendedFilms(userId),
+    staleTime: 1000 * 60 * 5, // 5 minutes cache
+  });
+}
+
+export function useSimilarFilms(filmId?: string | null, limit = 10) {
+  return useQuery<SimilarFilmItem[]>({
+    queryKey: ['similarFilms', filmId, limit],
+    queryFn: () => fetchSimilarFilms(filmId || '', limit),
+    enabled: Boolean(filmId),
+    staleTime: 1000 * 60 * 5,
   });
 }
 

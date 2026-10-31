@@ -169,3 +169,65 @@ export interface LogFilmPayload {
   isRewatch?: boolean;
   medium?: WatchMedium;
 }
+
+export interface CandidateFilm {
+  id: string;
+  title: string;
+  original_title?: string | null;
+  slug: string;
+  synopsis: string;
+  release_year: number;
+  poster_url?: string | null;
+  backdrop_url?: string | null;
+  director: string;
+  director_id?: string;
+  cast_ids?: string[];
+  cast_names?: string[];
+  genres: string[];
+  tags: string[];
+  audience_score?: number | null; // 0 to 100
+  critic_score?: number | null;
+  ratings_count?: number | null;
+  is_classic?: boolean;
+}
+
+export interface UserRatingInput {
+  film_id: string;
+  score: number; // 1.0 to 5.0
+}
+
+export interface RecommendedFilmItem {
+  id: string;
+  title: string;
+  original_title?: string | null;
+  slug: string;
+  synopsis: string;
+  release_year: number;
+  poster_url?: string | null;
+  backdrop_url?: string | null;
+  director: string;
+  audience_score?: number | null;
+  critic_score?: number | null;
+  ratings_count?: number | null;
+  recommendation_score: number;
+  recommendation_reason: string;
+  genres?: string[];
+  tags?: string[];
+}
+
+export interface SimilarFilmItem {
+  id: string;
+  title: string;
+  original_title?: string | null;
+  slug: string;
+  synopsis: string;
+  release_year: number;
+  poster_url?: string | null;
+  backdrop_url?: string | null;
+  director: string;
+  audience_score?: number | null;
+  critic_score?: number | null;
+  ratings_count?: number | null;
+  similarity_score: number;
+  similarity_reason: string;
+}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,7 @@ import {
   useSubmitFilmRating,
   useSubmitFilmReview,
   useLogFilmAndReview,
+  useSimilarFilms,
 } from '@/features/films/useFilm';
 import { WatchMedium } from '@/features/films/types';
 import {
@@ -48,6 +49,8 @@ import { FilmHeritageBanner } from '@/components/heritage';
 import { GlassHeader } from '@/components/ui/GlassHeader';
 import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { PosterRow } from '@/components/ui/PosterRow';
+import { PosterCardFilm } from '@/components/ui/PosterCard';
 import { radius, typography } from '@/lib/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -83,6 +86,21 @@ export default function FilmDetailScreen() {
 
   // Watch availability query
   const { data: watchAvailability = [] } = useFilmWatchAvailability(film?.id || id);
+
+  // Similar films recommendation query (Prompt 4.4)
+  const { data: similarFilmsData = [] } = useSimilarFilms(film?.id || id, 10);
+
+  const similarFilms: PosterCardFilm[] = useMemo(() => {
+    return (similarFilmsData || []).map((item) => ({
+      id: item.id,
+      title: item.title,
+      release_year: item.release_year,
+      poster_url: item.poster_url,
+      director: item.director,
+      critic_score: item.critic_score,
+      audience_score: item.audience_score,
+    }));
+  }, [similarFilmsData]);
 
   // Mutations
   const toggleWatchlistMutation = useToggleFilmWatchlist();
@@ -409,6 +427,17 @@ export default function FilmDetailScreen() {
           filmTitle={film.title}
         />
 
+        {/* Prompt 4.4: "Because you liked [Film Title]" Recommendation Shelf */}
+        {similarFilms.length > 0 && (
+          <View style={styles.similarShelfWrapper}>
+            <PosterRow
+              title={`Because you liked ${film.title}`}
+              subtitle="Recommended Philippine films with similar themes and creators"
+              films={similarFilms}
+            />
+          </View>
+        )}
+
         {/* Bottom space clearance for sticky action bar */}
         <View style={styles.bottomSpacer} />
       </Animated.ScrollView>
@@ -505,6 +534,10 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 90,
+  },
+  similarShelfWrapper: {
+    marginTop: 16,
+    marginBottom: 8,
   },
   bottomSpacer: {
     height: 40,

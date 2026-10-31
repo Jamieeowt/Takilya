@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Layers, ChevronRight } from 'lucide-react-native';
 import { colors, spacing, radius, typography } from '@/lib/theme';
-import { ExploreFilterState } from '@/features/explore/types';
+import { ExploreFilterState, ExploreFilmCard } from '@/features/explore/types';
 import {
   useExploreSections,
   useFilteredFilms,
@@ -38,6 +38,8 @@ import { AwardsRail, MMFFSeasonWidget } from '@/components/awards';
 import { usePreservedFilms } from '@/features/heritage/useHeritage';
 import { HeritageRail } from '@/components/heritage';
 import { WhereToWatchRail } from '@/components/availability';
+import { useAuth } from '@/features/auth';
+import { useRecommendedFilms } from '@/features/films/useFilm';
 
 
 
@@ -135,6 +137,35 @@ export default function ExploreScreen() {
     refetch: refetchPreservedFilms,
   } = usePreservedFilms('all');
 
+  const { user } = useAuth();
+  const {
+    data: recommendedFilms = [],
+    refetch: refetchRecommended,
+  } = useRecommendedFilms(user?.id);
+
+  const forYouExploreCards: ExploreFilmCard[] = useMemo(() => {
+    return (recommendedFilms || []).map((film) => ({
+      id: film.id,
+      title: film.title,
+      original_title: film.original_title,
+      slug: film.slug,
+      synopsis: film.synopsis,
+      release_year: film.release_year,
+      poster_url: film.poster_url,
+      backdrop_url: film.backdrop_url,
+      director: film.director,
+      language: 'Filipino',
+      mtrcb_rating: 'PG',
+      genres: film.genres || [],
+      tags: film.tags || [],
+      is_classic: false,
+      audience_score: film.audience_score ?? undefined,
+      critic_score: film.critic_score ?? undefined,
+      ratings_count: film.ratings_count ?? undefined,
+      badge_label: film.recommendation_reason,
+    }));
+  }, [recommendedFilms]);
+
   const handleRefresh = () => {
     if (isFiltering) {
       void refetchFiltered();
@@ -146,6 +177,7 @@ export default function ExploreScreen() {
       void refetchAwardBodies();
       void refetchMMFFSeason();
       void refetchPreservedFilms();
+      void refetchRecommended();
     }
   };
 
@@ -246,6 +278,16 @@ export default function ExploreScreen() {
 
           {/* Section 1: Featured Today (Promoted or Editorial Hero Card) */}
           <FeaturedHeroCard hero={sectionsData.featured} />
+
+          {/* Section: For You Personalized Recommendations (Prompt 4.4) */}
+          {forYouExploreCards.length > 0 && (
+            <FilmHorizontalRail
+              title="For You"
+              subtitle="Films recommended based on your Philippine cinema tastes & ratings"
+              badge="Personalized"
+              films={forYouExploreCards}
+            />
+          )}
 
           {/* Section: Where to Watch Streaming Hub */}
           <WhereToWatchRail />

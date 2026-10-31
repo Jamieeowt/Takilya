@@ -7,7 +7,15 @@ import {
   FilmTrailerItem,
   FilmReviewItem,
   FilmRatingMetrics,
+  RecommendedFilmItem,
+  SimilarFilmItem,
+  CandidateFilm,
+  UserRatingInput,
 } from './types';
+import {
+  computeRecommendations,
+  computeSimilarFilms,
+} from './recommendations';
 
 // ==============================================================================
 // RICH SEED CATALOG FOR PHILIPPINE FILMS (Matches Supabase Seed Data)
@@ -1088,5 +1096,302 @@ export async function logFilmAndReview(
     reviewSaved,
     watchHistorySaved,
   };
+}
+
+// ==============================================================================
+// RECOMMENDATIONS ENGINE (Prompt 4.4)
+// ==============================================================================
+
+export const PHILIPPINE_CANDIDATE_FILMS: CandidateFilm[] = [
+  {
+    id: 'cccccccc-0001-0000-0000-000000000000',
+    title: 'Himala',
+    original_title: 'Himala',
+    slug: 'himala',
+    synopsis:
+      'In a drought-stricken rural town, a young provincial woman named Elsa claims to have witnessed an apparition of the Virgin Mary, setting off a nationwide wave of fanaticism, commerce, and tragedy.',
+    release_year: 1982,
+    poster_url: 'https://images.unsplash.com/photo-1518676590629-3dcbd9c5a5c9?w=600&auto=format&fit=crop&q=80',
+    director: 'Ishmael Bernal',
+    director_id: 'aaaaaaaa-0001-0000-0000-000000000000',
+    cast_names: ['Nora Aunor', 'Spanky Manikan', 'Gigi Dueñas'],
+    genres: ['Drama', 'Social Realism', 'Heritage'],
+    tags: ['restored-heritage', 'national-artist-masterwork', 'canonical'],
+    audience_score: 96,
+    critic_score: 98,
+    ratings_count: 512,
+    is_classic: true,
+  },
+  {
+    id: 'cccccccc-0002-0000-0000-000000000000',
+    title: 'Maynila sa mga Kuko ng Liwanag',
+    original_title: 'Maynila sa mga Kuko ng Liwanag',
+    slug: 'maynila-sa-mga-kuko-ng-liwanag',
+    synopsis:
+      'Julio, a naive fisherman from Marinduque, navigates the cruel alleys of Manila searching for his lost childhood sweetheart Ligaya.',
+    release_year: 1975,
+    poster_url: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=600&auto=format&fit=crop&q=80',
+    director: 'Lino Brocka',
+    director_id: 'aaaaaaaa-0002-0000-0000-000000000000',
+    cast_names: ['Bembol Roco', 'Hilda Koronel', 'Lou Salvador Jr.'],
+    genres: ['Drama', 'Social Realism', 'Noir'],
+    tags: ['social-realism', 'national-artist-masterwork', 'restored-heritage'],
+    audience_score: 97,
+    critic_score: 99,
+    ratings_count: 480,
+    is_classic: true,
+  },
+  {
+    id: 'cccccccc-0003-0000-0000-000000000000',
+    title: 'Leonor Will Never Die',
+    original_title: 'Ang Pagbabalik ng Kwago',
+    slug: 'leonor-will-never-die',
+    synopsis:
+      'A retired action filmmaker falls into a coma when a television falls on her head, transporting her inside her own unfinished 1980s action screenplay.',
+    release_year: 2022,
+    poster_url: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=600&auto=format&fit=crop&q=80',
+    director: 'Martika Ramirez Escobar',
+    director_id: 'aaaaaaaa-0004-0000-0000-000000000000',
+    cast_names: ['Sheila Francisco', 'Bong Cabrera', 'Rocky Salumbides'],
+    genres: ['Action', 'Comedy', 'Indie'],
+    tags: ['indie', 'qcinema-selection', 'meta-cinema'],
+    audience_score: 91,
+    critic_score: 94,
+    ratings_count: 320,
+    is_classic: false,
+  },
+  {
+    id: 'cccccccc-0004-0000-0000-000000000000',
+    title: 'John Denver Trending',
+    original_title: 'John Denver Trending',
+    slug: 'john-denver-trending',
+    synopsis:
+      'A 14-year-old junior high student in Antique is falsely accused of stealing an iPad, and the resulting viral video spirals into a cyberbullying nightmare.',
+    release_year: 2019,
+    poster_url: 'https://images.unsplash.com/photo-1574267432553-4b4628081c31?w=600&auto=format&fit=crop&q=80',
+    director: 'Arden Rod Condez',
+    director_id: 'aaaaaaaa-0005-0000-0000-000000000000',
+    cast_names: ['Jansen Magpusao', 'Meryll Soriano', 'Glenn Mas'],
+    genres: ['Drama', 'Thriller', 'Regional Cinema'],
+    tags: ['indie', 'regional-cinema', 'based-on-true-story', 'cinemalaya-winner'],
+    audience_score: 93,
+    critic_score: 95,
+    ratings_count: 290,
+    is_classic: false,
+  },
+  {
+    id: 'cccccccc-0005-0000-0000-000000000000',
+    title: 'Cleaners',
+    original_title: 'Cleaners',
+    slug: 'cleaners',
+    synopsis:
+      'Set in Tuguegarao City in 2004, linked coming-of-age stories follow high school classroom cleaners entirely rendered in vibrant photocopied paper textures.',
+    release_year: 2019,
+    poster_url: 'https://images.unsplash.com/photo-1478760329108-5c3ed9d495a0?w=600&auto=format&fit=crop&q=80',
+    director: 'Glenn Barit',
+    director_id: 'aaaaaaaa-0006-0000-0000-000000000000',
+    cast_names: ['Leona Lyle', 'Allan Gannaban', 'Ianna Taguinod'],
+    genres: ['Comedy', 'Coming of Age', 'Indie'],
+    tags: ['indie', 'regional-cinema', 'qcinema-selection', 'experimental'],
+    audience_score: 94,
+    critic_score: 96,
+    ratings_count: 245,
+    is_classic: false,
+  },
+  {
+    id: 'cccccccc-0006-0000-0000-000000000000',
+    title: 'Manila by Night (City After Dark)',
+    original_title: 'City After Dark',
+    slug: 'manila-by-night',
+    synopsis:
+      'A polyphonic and provocative portrait of Manila nocturnal subcultures, tracing interconnected lives battling temptation, drug addiction, and alienation.',
+    release_year: 1980,
+    poster_url: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80',
+    director: 'Ishmael Bernal',
+    director_id: 'aaaaaaaa-0001-0000-0000-000000000000',
+    cast_names: ['Gina Alajar', 'Cherie Gil', 'Charito Solis'],
+    genres: ['Drama', 'Ensemble', 'Social Realism'],
+    tags: ['restored-heritage', 'national-artist-masterwork', 'canonical'],
+    audience_score: 95,
+    critic_score: 97,
+    ratings_count: 380,
+    is_classic: true,
+  },
+  {
+    id: 'cccccccc-0007-0000-0000-000000000000',
+    title: 'Insiang',
+    original_title: 'Insiang',
+    slug: 'insiang',
+    synopsis:
+      'A young laundrywoman living in the slums of Tondo seeks calculated vengeance after being betrayed and violated by her mothers abusive lover.',
+    release_year: 1976,
+    poster_url: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&auto=format&fit=crop&q=80',
+    director: 'Lino Brocka',
+    director_id: 'aaaaaaaa-0002-0000-0000-000000000000',
+    cast_names: ['Hilda Koronel', 'Mona Lisa', 'Ruel Vernal'],
+    genres: ['Drama', 'Social Realism', 'Tragedy'],
+    tags: ['restored-heritage', 'national-artist-masterwork', 'cannes-premiere'],
+    audience_score: 97,
+    critic_score: 98,
+    ratings_count: 420,
+    is_classic: true,
+  },
+  {
+    id: 'cccccccc-0008-0000-0000-000000000000',
+    title: 'Oda sa Wala',
+    original_title: 'Oda sa Wala',
+    slug: 'oda-sa-wala',
+    synopsis:
+      'An aging, solitary funeral home embalmer in the province discovers unexpected companionship with an unclaimed corpse that stays in her embalming room.',
+    release_year: 2018,
+    poster_url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&auto=format&fit=crop&q=80',
+    director: 'Dwein Baltazar',
+    cast_names: ['Pokwang', 'Joonee Gamboa', 'Dido de la Paz'],
+    genres: ['Drama', 'Dark Comedy', 'Indie'],
+    tags: ['indie', 'qcinema-winner', 'existential'],
+    audience_score: 89,
+    critic_score: 93,
+    ratings_count: 180,
+    is_classic: false,
+  },
+  {
+    id: 'cccccccc-0009-0000-0000-000000000000',
+    title: 'Edward',
+    original_title: 'Edward',
+    slug: 'edward',
+    synopsis:
+      'A high school slacker spends his days in the crowded wards of a Manila public hospital caring for his ailing father while discovering youthful romance and quiet sacrifice.',
+    release_year: 2019,
+    poster_url: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=600&auto=format&fit=crop&q=80',
+    director: 'Thop Nazareno',
+    cast_names: ['Louise Abuel', 'Ella Cruz', 'Dindo Arroyo'],
+    genres: ['Drama', 'Coming of Age', 'Indie'],
+    tags: ['indie', 'cinemalaya-selection', 'social-realism'],
+    audience_score: 90,
+    critic_score: 91,
+    ratings_count: 160,
+    is_classic: false,
+  },
+];
+
+export async function fetchRecommendedFilms(userId?: string | null): Promise<RecommendedFilmItem[]> {
+  // 1. Attempt Supabase RPC recommendation_films
+  try {
+    const { data, error } = await supabase.rpc('recommend_films', {
+      target_user_id: userId || null,
+    });
+    if (!error && Array.isArray(data) && data.length > 0) {
+      return data.map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        original_title: item.original_title,
+        slug: item.slug,
+        synopsis: item.synopsis,
+        release_year: Number(item.release_year),
+        poster_url: item.poster_url,
+        backdrop_url: item.backdrop_url,
+        director: item.director,
+        audience_score: item.audience_score != null ? Number(item.audience_score) : null,
+        critic_score: item.critic_score != null ? Number(item.critic_score) : null,
+        ratings_count: item.ratings_count != null ? Number(item.ratings_count) : null,
+        recommendation_score: Number(item.recommendation_score || 0),
+        recommendation_reason: item.recommendation_reason || 'Top Rated in Philippine Cinema',
+      }));
+    }
+  } catch (err) {
+    console.warn('recommend_films RPC failed, switching to algorithmic fallback:', err);
+  }
+
+  // 2. Client-side algorithmic fallback
+  let userRatings: UserRatingInput[] = [];
+  let userWatchHistory: string[] = [];
+
+  if (userId) {
+    try {
+      const { data: ratingsData } = await supabase
+        .from('ratings')
+        .select('film_id, score')
+        .eq('user_id', userId);
+      if (ratingsData) {
+        userRatings = ratingsData.map((r: any) => ({
+          film_id: r.film_id,
+          score: Number(r.score),
+        }));
+      }
+
+      const { data: watchData } = await supabase
+        .from('watch_history')
+        .select('film_id')
+        .eq('user_id', userId);
+      if (watchData) {
+        userWatchHistory = watchData.map((w: any) => w.film_id);
+      }
+    } catch (e) {
+      console.warn('Could not fetch user ratings/watch history for recommendations:', e);
+    }
+  }
+
+  return computeRecommendations(userRatings, PHILIPPINE_CANDIDATE_FILMS, userWatchHistory);
+}
+
+export async function fetchSimilarFilms(
+  filmId: string,
+  limit = 10
+): Promise<SimilarFilmItem[]> {
+  // 1. Attempt Supabase RPC recommend_similar_films
+  try {
+    const { data, error } = await supabase.rpc('recommend_similar_films', {
+      source_film_id: filmId,
+      p_limit: limit,
+    });
+    if (!error && Array.isArray(data) && data.length > 0) {
+      return data.map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        original_title: item.original_title,
+        slug: item.slug,
+        synopsis: item.synopsis,
+        release_year: Number(item.release_year),
+        poster_url: item.poster_url,
+        backdrop_url: item.backdrop_url,
+        director: item.director,
+        audience_score: item.audience_score != null ? Number(item.audience_score) : null,
+        critic_score: item.critic_score != null ? Number(item.critic_score) : null,
+        ratings_count: item.ratings_count != null ? Number(item.ratings_count) : null,
+        similarity_score: Number(item.similarity_score || 0),
+        similarity_reason: item.similarity_reason || 'Recommended Philippine cinema',
+      }));
+    }
+  } catch (err) {
+    console.warn('recommend_similar_films RPC failed, switching to algorithmic fallback:', err);
+  }
+
+  // 2. Algorithmic fallback
+  const sourceFilm = PHILIPPINE_CANDIDATE_FILMS.find(
+    (c) => c.id === filmId || c.slug === filmId
+  );
+  if (!sourceFilm) {
+    // If not in static candidate array, return high-rated other films
+    return PHILIPPINE_CANDIDATE_FILMS.filter((c) => c.id !== filmId)
+      .slice(0, limit)
+      .map((c) => ({
+        id: c.id,
+        title: c.title,
+        original_title: c.original_title,
+        slug: c.slug,
+        synopsis: c.synopsis,
+        release_year: c.release_year,
+        poster_url: c.poster_url,
+        backdrop_url: c.backdrop_url,
+        director: c.director,
+        audience_score: c.audience_score,
+        critic_score: c.critic_score,
+        ratings_count: c.ratings_count,
+        similarity_score: c.audience_score ?? 85,
+        similarity_reason: 'Recommended Philippine cinema',
+      }));
+  }
+
+  return computeSimilarFilms(sourceFilm, PHILIPPINE_CANDIDATE_FILMS, limit);
 }
 
