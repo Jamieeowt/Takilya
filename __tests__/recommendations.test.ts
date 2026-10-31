@@ -1,10 +1,8 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
 import {
   computeRecommendations,
   computeSimilarFilms,
-} from '../features/films/recommendations.ts';
-import type { CandidateFilm, UserRatingInput } from '../features/films/types.ts';
+} from '../features/films/recommendations';
+import type { CandidateFilm, UserRatingInput } from '../features/films/types';
 
 // Realistic Philippine Cinema Test Catalog
 const TEST_FILMS: CandidateFilm[] = [
@@ -129,11 +127,11 @@ describe('Takilya Recommendation Engine (Prompt 4.4)', () => {
   it('Case 1: User with no ratings returns top-rated fallback catalog', () => {
     const recommendations = computeRecommendations([], TEST_FILMS);
 
-    assert.ok(recommendations.length > 0, 'Should return candidate recommendations');
+    expect(recommendations.length).toBeGreaterThan(0);
     // Top-rated fallback must be sorted by audience score descending
-    assert.equal(recommendations[0].title, 'Maynila sa mga Kuko ng Liwanag');
-    assert.equal(recommendations[0].audience_score, 97);
-    assert.equal(recommendations[0].recommendation_reason, 'Top Rated in Philippine Cinema');
+    expect(recommendations[0].title).toBe('Maynila sa mga Kuko ng Liwanag');
+    expect(recommendations[0].audience_score).toBe(97);
+    expect(recommendations[0].recommendation_reason).toBe('Top Rated in Philippine Cinema');
   });
 
   // --------------------------------------------------------------------------
@@ -151,14 +149,11 @@ describe('Takilya Recommendation Engine (Prompt 4.4)', () => {
 
     // Film 5 (Leonor Will Never Die) has Indie tag & Comedy genre, matching user's taste
     const topRecommended = recommendations[0];
-    assert.ok(topRecommended, 'Must return recommendations');
-    assert.equal(topRecommended.id, 'film-5');
-    assert.ok(
-      topRecommended.recommendation_reason.includes('genre') ||
-      topRecommended.recommendation_reason.includes('theme') ||
-      topRecommended.recommendation_reason.includes('taste'),
-      `Reason should reflect metadata affinity, got: ${topRecommended.recommendation_reason}`
-    );
+    expect(topRecommended).toBeDefined();
+    expect(topRecommended.id).toBe('film-5');
+    const reason = topRecommended.recommendation_reason;
+    const matchesAffinity = reason.includes('genre') || reason.includes('theme') || reason.includes('taste');
+    expect(matchesAffinity).toBe(true);
   });
 
   // --------------------------------------------------------------------------
@@ -176,15 +171,9 @@ describe('Takilya Recommendation Engine (Prompt 4.4)', () => {
 
     // Ishmael Bernal's unrated 'Manila by Night' (film-3) should be boosted to the top!
     const bernalMatch = recommendations.find((r) => r.id === 'film-3');
-    assert.ok(bernalMatch, 'Manila by Night must be recommended');
-    assert.equal(
-      bernalMatch!.recommendation_reason,
-      'Because you like director Ishmael Bernal'
-    );
-    assert.ok(
-      bernalMatch!.recommendation_score > 3.0,
-      'Should receive strong director affinity boost'
-    );
+    expect(bernalMatch).toBeDefined();
+    expect(bernalMatch!.recommendation_reason).toBe('Because you like director Ishmael Bernal');
+    expect(bernalMatch!.recommendation_score).toBeGreaterThan(3.0);
   });
 
   // --------------------------------------------------------------------------
@@ -202,15 +191,13 @@ describe('Takilya Recommendation Engine (Prompt 4.4)', () => {
 
     // 1. Should not recommend the poorly rated films
     const recommendedIds = recommendations.map((r) => r.id);
-    assert.ok(!recommendedIds.includes('film-1'), 'Film 1 must be excluded');
-    assert.ok(!recommendedIds.includes('film-2'), 'Film 2 must be excluded');
-    assert.ok(!recommendedIds.includes('film-3'), 'Film 3 must be excluded');
+    expect(recommendedIds).not.toContain('film-1');
+    expect(recommendedIds).not.toContain('film-2');
+    expect(recommendedIds).not.toContain('film-3');
 
     // 2. Cold-start fallback should kick in because high ratings count (< 4.0) is 0 < 3
-    assert.equal(recommendations[0].recommendation_reason, 'Top Rated in Philippine Cinema');
-    // Among remaining films (film-4: 97%, film-5: 91%, film-6: 93%, film-7: 94%, film-8: 89%),
-    // film-4 (Insiang) has 97% audience score so it ranks first
-    assert.equal(recommendations[0].id, 'film-4');
+    expect(recommendations[0].recommendation_reason).toBe('Top Rated in Philippine Cinema');
+    expect(recommendations[0].id).toBe('film-4');
   });
 
   // --------------------------------------------------------------------------
@@ -227,16 +214,16 @@ describe('Takilya Recommendation Engine (Prompt 4.4)', () => {
     const recommendations = computeRecommendations(userRatings, TEST_FILMS, watchedFilmIds);
 
     const recommendedIds = new Set(recommendations.map((r) => r.id));
-    assert.ok(!recommendedIds.has('film-1'), 'Rated film-1 must be excluded');
-    assert.ok(!recommendedIds.has('film-2'), 'Rated film-2 must be excluded');
-    assert.ok(!recommendedIds.has('film-3'), 'Rated film-3 must be excluded');
-    assert.ok(!recommendedIds.has('film-4'), 'Watched film-4 must be excluded');
-    assert.ok(!recommendedIds.has('film-6'), 'Watched film-6 must be excluded');
+    expect(recommendedIds.has('film-1')).toBe(false);
+    expect(recommendedIds.has('film-2')).toBe(false);
+    expect(recommendedIds.has('film-3')).toBe(false);
+    expect(recommendedIds.has('film-4')).toBe(false);
+    expect(recommendedIds.has('film-6')).toBe(false);
 
     // Only unrated and unwatched films should remain (film-5, film-7, film-8)
-    assert.ok(recommendedIds.has('film-5'));
-    assert.ok(recommendedIds.has('film-7'));
-    assert.ok(recommendedIds.has('film-8'));
+    expect(recommendedIds.has('film-5')).toBe(true);
+    expect(recommendedIds.has('film-7')).toBe(true);
+    expect(recommendedIds.has('film-8')).toBe(true);
   });
 
   // --------------------------------------------------------------------------
@@ -246,9 +233,9 @@ describe('Takilya Recommendation Engine (Prompt 4.4)', () => {
     const himala = TEST_FILMS[0]; // Directed by Ishmael Bernal
     const similar = computeSimilarFilms(himala, TEST_FILMS, 5);
 
-    assert.ok(similar.length > 0);
+    expect(similar.length).toBeGreaterThan(0);
     // Manila by Night is also directed by Ishmael Bernal and has Drama/Social Realism
-    assert.equal(similar[0].id, 'film-3');
-    assert.equal(similar[0].similarity_reason, 'Also directed by Ishmael Bernal');
+    expect(similar[0].id).toBe('film-3');
+    expect(similar[0].similarity_reason).toBe('Also directed by Ishmael Bernal');
   });
 });

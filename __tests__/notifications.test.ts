@@ -1,11 +1,9 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
 import {
   groupNotifications,
   calculateUnreadCount,
   getNotificationDeepLink,
-} from '../features/notifications/utils.ts';
-import type { AppNotification } from '../features/notifications/types.ts';
+} from '../features/notifications/utils';
+import type { AppNotification } from '../features/notifications/types';
 
 const SAMPLE_NOTIFICATIONS: AppNotification[] = [
   {
@@ -62,49 +60,49 @@ const SAMPLE_NOTIFICATIONS: AppNotification[] = [
   },
 ];
 
-describe('Takilya Notifications Module (Prompt 4.5)', () => {
+describe('Takilya Notifications Module (Prompt 4.5 & 5.1)', () => {
   it('correctly calculates unread notification count', () => {
     const unread = calculateUnreadCount(SAMPLE_NOTIFICATIONS);
-    assert.equal(unread, 2, 'Should have exactly 2 unread notifications');
+    expect(unread).toBe(2);
 
     const allRead = SAMPLE_NOTIFICATIONS.map((n) => ({ ...n, is_read: true }));
-    assert.equal(calculateUnreadCount(allRead), 0, 'Should be 0 when all are marked read');
+    expect(calculateUnreadCount(allRead)).toBe(0);
   });
 
   it('groups notifications chronologically into Today and Earlier', () => {
     const groups = groupNotifications(SAMPLE_NOTIFICATIONS);
 
-    assert.equal(groups.length, 2, 'Should create 2 groups: Today and Earlier');
-    assert.equal(groups[0].title, 'Today');
-    assert.equal(groups[0].data.length, 2, 'Today group should contain 2 items');
-    assert.equal(groups[0].data[0].id, 'notif-1');
-    assert.equal(groups[0].data[1].id, 'notif-2');
+    expect(groups.length).toBe(2);
+    expect(groups[0].title).toBe('Today');
+    expect(groups[0].data.length).toBe(2);
+    expect(groups[0].data[0].id).toBe('notif-1');
+    expect(groups[0].data[1].id).toBe('notif-2');
 
-    assert.equal(groups[1].title, 'Earlier');
-    assert.equal(groups[1].data.length, 2, 'Earlier group should contain 2 items');
-    assert.equal(groups[1].data[0].id, 'notif-3');
-    assert.equal(groups[1].data[1].id, 'notif-4');
+    expect(groups[1].title).toBe('Earlier');
+    expect(groups[1].data.length).toBe(2);
+    expect(groups[1].data[0].id).toBe('notif-3');
+    expect(groups[1].data[1].id).toBe('notif-4');
   });
 
   it('resolves correct deep-link target routes for each notification entity', () => {
     // 1. Film / trailer deep-link
     const trailerLink = getNotificationDeepLink(SAMPLE_NOTIFICATIONS[0]);
-    assert.equal(trailerLink.pathname, '/film/[id]');
-    assert.equal(trailerLink.params?.id, 'film-leonor-uuid');
+    expect(trailerLink.pathname).toBe('/film/[id]');
+    expect(trailerLink.params?.id).toBe('film-leonor-uuid');
 
     // 2. Thread / discussion deep-link
     const threadLink = getNotificationDeepLink(SAMPLE_NOTIFICATIONS[1]);
-    assert.equal(threadLink.pathname, '/film/[id]');
-    assert.equal(threadLink.params?.id, 'film-himala-uuid');
+    expect(threadLink.pathname).toBe('/film/[id]');
+    expect(threadLink.params?.id).toBe('film-himala-uuid');
 
     // 3. Review vote deep-link
     const reviewLink = getNotificationDeepLink(SAMPLE_NOTIFICATIONS[2]);
-    assert.equal(reviewLink.pathname, '/film/[id]');
-    assert.equal(reviewLink.params?.id, 'film-maynila-uuid');
+    expect(reviewLink.pathname).toBe('/film/[id]');
+    expect(reviewLink.params?.id).toBe('film-maynila-uuid');
 
     // 4. Verification deep-link
     const verificationLink = getNotificationDeepLink(SAMPLE_NOTIFICATIONS[3]);
-    assert.equal(verificationLink.pathname, '/settings');
+    expect(verificationLink.pathname).toBe('/settings');
   });
 
   it('verifies notification mutation state transitions', () => {
@@ -114,18 +112,18 @@ describe('Takilya Notifications Module (Prompt 4.5)', () => {
     list = list.map((n) => (n.id === targetId ? { ...n, is_read: true } : n));
 
     const updatedItem = list.find((n) => n.id === targetId);
-    assert.equal(updatedItem?.is_read, true);
-    assert.equal(calculateUnreadCount(list), 1);
+    expect(updatedItem?.is_read).toBe(true);
+    expect(calculateUnreadCount(list)).toBe(1);
 
     // Mark all as read transition
     list = list.map((n) => ({ ...n, is_read: true }));
-    assert.equal(calculateUnreadCount(list), 0);
-    assert.ok(list.every((n) => n.is_read));
+    expect(calculateUnreadCount(list)).toBe(0);
+    expect(list.every((n) => n.is_read)).toBe(true);
   });
 
   it('handles empty notifications array gracefully', () => {
     const emptyGroups = groupNotifications([]);
-    assert.deepEqual(emptyGroups, []);
-    assert.equal(calculateUnreadCount([]), 0);
+    expect(emptyGroups).toEqual([]);
+    expect(calculateUnreadCount([])).toBe(0);
   });
 });
