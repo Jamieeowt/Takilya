@@ -35,6 +35,7 @@ import { useAwardBodies, useMMFFSeason } from '@/features/awards/useAwards';
 import { AwardsRail, MMFFSeasonWidget } from '@/components/awards';
 import { usePreservedFilms } from '@/features/heritage/useHeritage';
 import { HeritageRail } from '@/components/heritage';
+import { WhereToWatchRail } from '@/components/availability';
 
 
 
@@ -222,6 +223,9 @@ export default function ExploreScreen() {
         <View style={styles.sectionsContainer}>
           {/* Section 1: Featured Today (Promoted or Editorial Hero Card) */}
           <FeaturedHeroCard hero={sectionsData.featured} />
+
+          {/* Section: Where to Watch Streaming Hub */}
+          <WhereToWatchRail />
 
           {/* Section: MMFF Seasonal Showcase Widget */}
           {mmffSeason && <MMFFSeasonWidget seasonData={mmffSeason} />}

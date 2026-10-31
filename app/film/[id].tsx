@@ -43,6 +43,7 @@ import {
   LogReviewSheet,
 } from '@/components/film';
 import { useFilmPreservation } from '@/features/heritage/useHeritage';
+import { useFilmWatchAvailability } from '@/features/availability/useAvailability';
 import { FilmHeritageBanner } from '@/components/heritage';
 import { GlassHeader } from '@/components/ui/GlassHeader';
 import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
@@ -79,6 +80,9 @@ export default function FilmDetailScreen() {
 
   // Heritage preservation record query
   const { data: preservation } = useFilmPreservation(film?.id || id);
+
+  // Watch availability query
+  const { data: watchAvailability = [] } = useFilmWatchAvailability(film?.id || id);
 
   // Mutations
   const toggleWatchlistMutation = useToggleFilmWatchlist();
@@ -374,6 +378,7 @@ export default function FilmDetailScreen() {
         <FilmOverviewSection
           synopsis={film.synopsis}
           watchOptions={film.watch_options}
+          availabilityItems={watchAvailability}
         />
 
         {/* Cast & Crew Carousel */}

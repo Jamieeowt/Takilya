@@ -178,6 +178,12 @@ function RootNavigationLayout() {
           }}
         />
         <Stack.Screen
+          name="watch/index"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
           name="settings"
           options={{
             presentation: 'modal',
