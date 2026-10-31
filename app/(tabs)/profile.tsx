@@ -45,6 +45,7 @@ import {
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
 import { GlassHeader } from '@/components/ui/GlassHeader';
+import { NotificationBellButton } from '@/components/notifications';
 import { radius, spacing, typography } from '@/lib/theme';
 
 const TAB_OPTIONS = ['Diary', 'Watchlist', 'Lists', 'Reviews', 'Discussions'];
@@ -200,6 +201,7 @@ export default function ProfileScreen() {
         title={currentProfile.display_name}
         right={
           <View style={styles.headerRightRow}>
+            <NotificationBellButton />
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Open Settings"
@@ -381,6 +383,7 @@ const styles = StyleSheet.create({
   headerRightRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.xs,
   },
   guestBanner: {
     flexDirection: 'row',

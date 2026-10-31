@@ -223,6 +223,12 @@ function RootNavigationLayout() {
           }}
         />
         <Stack.Screen
+          name="notifications/index"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
           name="modal"
           options={{
             presentation: 'modal',
