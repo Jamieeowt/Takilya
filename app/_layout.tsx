@@ -172,6 +172,12 @@ function RootNavigationLayout() {
           }}
         />
         <Stack.Screen
+          name="heritage/index"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
           name="settings"
           options={{
             presentation: 'modal',

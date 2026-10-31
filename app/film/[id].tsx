@@ -42,6 +42,8 @@ import {
   FilmRateModal,
   LogReviewSheet,
 } from '@/components/film';
+import { useFilmPreservation } from '@/features/heritage/useHeritage';
+import { FilmHeritageBanner } from '@/components/heritage';
 import { GlassHeader } from '@/components/ui/GlassHeader';
 import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -74,6 +76,9 @@ export default function FilmDetailScreen() {
     isError,
     refetch,
   } = useFilmDetail(id || '', user?.id);
+
+  // Heritage preservation record query
+  const { data: preservation } = useFilmPreservation(film?.id || id);
 
   // Mutations
   const toggleWatchlistMutation = useToggleFilmWatchlist();
@@ -351,6 +356,14 @@ export default function FilmDetailScreen() {
         {/* Parallax Hero Backdrop & Metadata Section */}
         <FilmHeroSection film={film} scrollY={scrollY} />
 
+        {/* Philippine Film Heritage Preservation Banner */}
+        {(preservation || film.is_classic) && (
+          <FilmHeritageBanner
+            preservation={preservation}
+            isClassic={film.is_classic}
+          />
+        )}
+
         {/* Dual Score Rings (Audience & Critic) */}
         <FilmRatingsSection
           ratings={film.ratings}
@@ -366,6 +379,7 @@ export default function FilmDetailScreen() {
         {/* Cast & Crew Carousel */}
         <FilmCastCrewSection
           credits={film.credits}
+          isClassic={film.is_classic}
           onSelectPerson={(personId) => {
             // Can route to /person/[id] or explorer
           }}

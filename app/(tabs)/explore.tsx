@@ -33,6 +33,9 @@ import { useStudios } from '@/features/studios/useStudios';
 import { StudiosRail } from '@/components/studios';
 import { useAwardBodies, useMMFFSeason } from '@/features/awards/useAwards';
 import { AwardsRail, MMFFSeasonWidget } from '@/components/awards';
+import { usePreservedFilms } from '@/features/heritage/useHeritage';
+import { HeritageRail } from '@/components/heritage';
+
 
 
 
@@ -123,6 +126,11 @@ export default function ExploreScreen() {
     refetch: refetchMMFFSeason,
   } = useMMFFSeason();
 
+  const {
+    data: preservedFilms = [],
+    refetch: refetchPreservedFilms,
+  } = usePreservedFilms('all');
+
   const handleRefresh = () => {
     if (isFiltering) {
       void refetchFiltered();
@@ -133,6 +141,7 @@ export default function ExploreScreen() {
       void refetchStudios();
       void refetchAwardBodies();
       void refetchMMFFSeason();
+      void refetchPreservedFilms();
     }
   };
 
@@ -222,6 +231,9 @@ export default function ExploreScreen() {
 
           {/* Section: Awards & Recognitions Database Rail */}
           <AwardsRail awardBodies={awardBodies} />
+
+          {/* Section: Philippine Film Heritage Preserved Rail */}
+          <HeritageRail preservedFilms={preservedFilms} />
 
           {/* Section: Directors & Actors Database Rail */}
           <PeopleRail people={people} />

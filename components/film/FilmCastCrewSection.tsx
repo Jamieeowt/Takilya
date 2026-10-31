@@ -12,15 +12,29 @@ import { Avatar } from '@/components/ui/Avatar';
 import { radius, typography } from '@/lib/theme';
 
 interface FilmCastCrewSectionProps {
-  credits: FilmCastMember[];
+  credits?: FilmCastMember[] | null;
+  isClassic?: boolean;
   onSelectPerson?: (personId: string) => void;
 }
 
 export function FilmCastCrewSection({
   credits,
+  isClassic,
   onSelectPerson,
 }: FilmCastCrewSectionProps) {
-  if (!credits || credits.length === 0) return null;
+  if (!credits || credits.length === 0) {
+    if (isClassic) {
+      return (
+        <View style={styles.container}>
+          <Text style={styles.sectionTitle}>Cast & Crew</Text>
+          <Text style={styles.classicNote}>
+            Archival cast and production records for this classic title are documented in cultural archives.
+          </Text>
+        </View>
+      );
+    }
+    return null;
+  }
 
   const handlePressPerson = (personId: string) => {
     try {
@@ -40,27 +54,29 @@ export function FilmCastCrewSection({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollList}>
         {credits.map((item) => {
+          if (!item) return null;
           const isVerified = item.verification_status === 'verified';
           const roleDisplay = item.character_name
             ? `${item.character_name}`
-            : item.role;
+            : item.role || 'Cast';
+          const displayName = item.name || 'Artist';
 
           return (
             <Pressable
-              key={item.id}
+              key={item.id || item.person_id}
               accessibilityRole="button"
-              accessibilityLabel={`${item.name}, ${item.role}${item.character_name ? ` as ${item.character_name}` : ''}`}
-              onPress={() => handlePressPerson(item.person_id)}
+              accessibilityLabel={`${displayName}, ${roleDisplay}`}
+              onPress={() => item.person_id && handlePressPerson(item.person_id)}
               style={styles.personCard}>
               <Avatar
-                url={item.photo_url}
-                name={item.name}
+                url={item.photo_url || undefined}
+                name={displayName}
                 size={58}
                 isVerified={isVerified}
               />
 
               <Text style={styles.personName} numberOfLines={1}>
-                {item.name}
+                {displayName}
               </Text>
 
               <Text style={styles.personRole} numberOfLines={2}>
@@ -110,6 +126,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: 'center',
     lineHeight: 14,
+  },
+  classicNote: {
+    ...typography.caption,
+    color: '#8A8A8A',
+    fontSize: 12,
+    lineHeight: 16,
+    paddingHorizontal: 16,
+    fontStyle: 'italic',
   },
 });
 
