@@ -21,9 +21,12 @@ import {
   LogOut,
   LogIn,
   Check,
+  ChevronRight,
+  Video,
+  FileCheck,
 } from 'lucide-react-native';
 
-import { useAuth } from '@/features/auth';
+import { useAuth, useRole } from '@/features/auth';
 import { useTheme } from '@/lib/theme';
 import { GlassHeader } from '@/components/ui/GlassHeader';
 import { Avatar } from '@/components/ui/Avatar';
@@ -33,6 +36,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, profile, isAuthenticated, signOut } = useAuth();
+  const { isVerifiedOfficial, isAdmin } = useRole();
   const { theme, isDark, setTheme, tokens } = useTheme();
 
   const handleToggleTheme = (newMode: 'dark' | 'light') => {
@@ -132,6 +136,91 @@ export default function SettingsScreen() {
               <Text style={styles.signInActionText}>Sign In / Register</Text>
             </Pressable>
           </View>
+        )}
+
+        {/* Official & Verification Section */}
+        {isAuthenticated && (
+          <>
+            <Text style={[styles.sectionHeaderTitle, { color: tokens.text.tertiary }]}>
+              OFFICIAL & VERIFICATION
+            </Text>
+
+            <View
+              style={[
+                styles.section,
+                { backgroundColor: tokens.background.secondary, borderColor: tokens.border.hairline },
+              ]}>
+              {/* Request Verification */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Official verification request"
+                onPress={() => router.push('/verification/request' as any)}
+                style={styles.menuRow}>
+                <View style={styles.menuRowLeft}>
+                  <ShieldCheck size={20} color={tokens.text.primary} />
+                  <View style={styles.menuRowText}>
+                    <Text style={[styles.settingTitle, { color: tokens.text.primary }]}>
+                      Official Verification
+                    </Text>
+                    <Text style={[styles.settingSubtitle, { color: tokens.text.secondary }]}>
+                      Request verified badges for Studios, Festivals, or Filmmakers.
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={18} color={tokens.text.tertiary} />
+              </Pressable>
+
+              {/* Post Official Clip (if verified official or admin) */}
+              {(isVerifiedOfficial || isAdmin) && (
+                <>
+                  <View style={[styles.divider, { backgroundColor: tokens.border.hairline }]} />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Post official clip"
+                    onPress={() => router.push('/trailers/post' as any)}
+                    style={styles.menuRow}>
+                    <View style={styles.menuRowLeft}>
+                      <Video size={20} color={tokens.text.primary} />
+                      <View style={styles.menuRowText}>
+                        <Text style={[styles.settingTitle, { color: tokens.text.primary }]}>
+                          Post Official Clip
+                        </Text>
+                        <Text style={[styles.settingSubtitle, { color: tokens.text.secondary }]}>
+                          Publish verified trailers, teasers, and official clips to the feed.
+                        </Text>
+                      </View>
+                    </View>
+                    <ChevronRight size={18} color={tokens.text.tertiary} />
+                  </Pressable>
+                </>
+              )}
+
+              {/* Admin Portal (if admin) */}
+              {isAdmin && (
+                <>
+                  <View style={[styles.divider, { backgroundColor: tokens.border.hairline }]} />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Admin verification portal"
+                    onPress={() => router.push('/admin/verification' as any)}
+                    style={styles.menuRow}>
+                    <View style={styles.menuRowLeft}>
+                      <FileCheck size={20} color={tokens.text.primary} />
+                      <View style={styles.menuRowText}>
+                        <Text style={[styles.settingTitle, { color: tokens.text.primary }]}>
+                          Admin Verification Portal
+                        </Text>
+                        <Text style={[styles.settingSubtitle, { color: tokens.text.secondary }]}>
+                          Review and approve pending verification requests.
+                        </Text>
+                      </View>
+                    </View>
+                    <ChevronRight size={18} color={tokens.text.tertiary} />
+                  </Pressable>
+                </>
+              )}
+            </View>
+          </>
         )}
 
         {/* Appearance Section */}
@@ -438,6 +527,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    minHeight: 48,
+  },
+  menuRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  menuRowText: {
+    flex: 1,
+  },
+  divider: {
+    height: 1,
+    marginVertical: spacing.xs,
   },
 });
 

@@ -184,6 +184,26 @@ function RootNavigationLayout() {
           }}
         />
         <Stack.Screen
+          name="verification/request"
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="admin/verification"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="trailers/post"
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
           name="settings"
           options={{
             presentation: 'modal',
