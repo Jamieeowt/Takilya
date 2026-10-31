@@ -632,7 +632,23 @@ export async function searchExplore(query: string): Promise<SearchEntityResult[]
   const queryLower = cleanQuery.toLowerCase();
 
   try {
-    // Parallel Supabase queries
+    // 1. Single unified Supabase RPC Postgres query hitting films, people, festivals, and studios
+    const rpcRes = await supabase.rpc('search_explore_entities', { search_query: cleanQuery });
+    if (rpcRes.data && rpcRes.data.length > 0) {
+      return rpcRes.data.map((row: any) => ({
+        type: row.type,
+        id: row.id,
+        film_id: row.film_id || undefined,
+        title: row.title,
+        subtitle: row.subtitle,
+        badge: row.badge || undefined,
+        image_url: row.image_url || undefined,
+        is_verified: Boolean(row.is_verified),
+        year: row.year || null,
+      }));
+    }
+
+    // 2. Parallel Supabase queries fallback
     const [filmsRes, peopleRes, festivalsRes, studiosRes] = await Promise.all([
       supabase
         .from('films')

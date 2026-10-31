@@ -12,8 +12,22 @@ import {
 import { useRouter, useIsFocused } from 'expo-router';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withRepeat,
+  Easing,
+  cancelAnimation,
+} from 'react-native-reanimated';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+
 import { colors, spacing, radius, typography } from '@/lib/theme';
-import { Badge } from '@/components/Badge';
+import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
+import { PromotedPill } from '@/components/ui/PromotedPill';
+import { Chip } from '@/components/ui/Chip';
 import { FeedTrailerItem } from '../types';
 import { useIncrementTrailerView, useToggleWatchlist } from '../useFeed';
 import { useAuth } from '@/features/auth';
@@ -49,7 +63,7 @@ export function FeedVideoItem({
   const [isMuted, setIsMuted] = useState(externalIsMuted ?? true);
   const [hasPlayerError, setHasPlayerError] = useState(false);
 
-  // Social engagement state
+  // Social engagement state (Strict Monochrome: White #FFFFFF / Grays)
   const [isLiked, setIsLiked] = useState(Boolean(item.is_liked));
   const [likeCount, setLikeCount] = useState(item.like_count);
   const [isInWatchlist, setIsInWatchlist] = useState(Boolean(item.is_in_watchlist));
@@ -58,7 +72,19 @@ export function FeedVideoItem({
   const incrementViewMutation = useIncrementTrailerView();
   const toggleWatchlistMutation = useToggleWatchlist();
 
-  // Synchronize external mute state when passed from global store or parent
+  // Double tap detection & spring heart animation
+  const lastTapRef = useRef<number>(0);
+  const singleTapTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heartScale = useSharedValue(0);
+  const heartOpacity = useSharedValue(0);
+
+  // Rotating vinyl poster disc animation
+  const discRotation = useSharedValue(0);
+
+  // Bottom white progress bar animation
+  const progressWidth = useSharedValue(0);
+
+  // Synchronize external mute state
   useEffect(() => {
     if (externalIsMuted !== undefined) {
       setIsMuted(externalIsMuted);
@@ -79,18 +105,61 @@ export function FeedVideoItem({
 
   // Toggle mute handler (keeps mute=true by default for autoplay compliance)
   const handleToggleMute = () => {
+    try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
     setIsMuted((prev) => !prev);
     if (onToggleMute) {
       onToggleMute();
     }
   };
 
-  // Programmatic play/pause toggle when tapping anywhere on the video container
+  // Programmatic play/pause toggle
   const togglePlayPause = () => {
+    try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
     setIsPlaying((prev) => !prev);
   };
 
-  // 1. Playback View Count: Increment view_count after 3 seconds of continuous playback
+  // Rotating disc animation: spins continuously when playing, pauses when stopped
+  useEffect(() => {
+    if (isViewable && isReady && isPlaying) {
+      discRotation.value = withRepeat(
+        withTiming(discRotation.value + 360, {
+          duration: 7000,
+          easing: Easing.linear,
+        }),
+        -1,
+        false
+      );
+    } else {
+      cancelAnimation(discRotation);
+    }
+
+    return () => {
+      cancelAnimation(discRotation);
+    };
+  }, [isViewable, isReady, isPlaying]);
+
+  // Bottom progress line animation: fills along bottom while playing
+  useEffect(() => {
+    if (isViewable && isReady && isPlaying) {
+      progressWidth.value = withRepeat(
+        withTiming(1, { duration: 30000, easing: Easing.linear }),
+        -1,
+        false
+      );
+    } else {
+      cancelAnimation(progressWidth);
+    }
+
+    return () => {
+      cancelAnimation(progressWidth);
+    };
+  }, [isViewable, isReady, isPlaying]);
+
+  // View count increment: after 3 seconds of continuous playback
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -108,15 +177,66 @@ export function FeedVideoItem({
     };
   }, [isViewable, isReady, isPlaying, hasPlayerError, item.id]);
 
-  // Handle Like Toggle
+  // Double tap to like handler
+  const handleTapSurface = () => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300;
+
+    if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+      // Double tap triggered!
+      if (singleTapTimeout.current) {
+        clearTimeout(singleTapTimeout.current);
+        singleTapTimeout.current = null;
+      }
+      lastTapRef.current = 0;
+
+      // Haptic tick
+      try {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {}
+
+      // Like state
+      if (!isLiked) {
+        setIsLiked(true);
+        setLikeCount((prev) => prev + 1);
+      }
+
+      // Spring heart animation
+      heartScale.value = 0;
+      heartOpacity.value = 1;
+      heartScale.value = withSpring(1.25, { damping: 10, stiffness: 220 });
+      heartOpacity.value = withTiming(0, { duration: 800 });
+    } else {
+      lastTapRef.current = now;
+      // Single tap: wait to verify it is not a double tap
+      singleTapTimeout.current = setTimeout(() => {
+        togglePlayPause();
+        lastTapRef.current = 0;
+      }, DOUBLE_TAP_DELAY);
+    }
+  };
+
+  // Handle Action Rail Like Toggle
   const handleToggleLike = () => {
+    try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
     const nextState = !isLiked;
     setIsLiked(nextState);
     setLikeCount((prev) => (nextState ? prev + 1 : Math.max(0, prev - 1)));
+    if (nextState) {
+      heartScale.value = 0;
+      heartOpacity.value = 1;
+      heartScale.value = withSpring(1.1, { damping: 10, stiffness: 220 });
+      heartOpacity.value = withTiming(0, { duration: 700 });
+    }
   };
 
   // Handle Watchlist Toggle
   const handleToggleWatchlist = () => {
+    try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
     if (!user) {
       router.push('/(tabs)/account' as any);
       return;
@@ -134,45 +254,57 @@ export function FeedVideoItem({
   // Handle Native Share
   const handleShare = async () => {
     try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    try {
       await Share.share({
         title: item.film_title,
         message: `Watch "${item.film_title}" (${item.release_year}) official clip on Takilya: https://youtu.be/${item.youtube_video_id}`,
       });
-    } catch {
-      // user dismissed share
-    }
+    } catch {}
   };
 
   // Navigate to Film Detail Screen
   const handleOpenFilmDetail = () => {
+    try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
     router.push({
       pathname: '/film/[id]' as any,
       params: { id: item.film_id },
     });
   };
 
-  // Open in YouTube fallback
-  const handleOpenExternalYouTube = () => {
-    void Linking.openURL(`https://www.youtube.com/watch?v=${item.youtube_video_id}`);
-  };
+  // Animated styles
+  const animatedHeartStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: heartScale.value }],
+    opacity: heartOpacity.value,
+  }));
+
+  const animatedDiscStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${discRotation.value}deg` }],
+  }));
+
+  const animatedProgressStyle = useAnimatedStyle(() => ({
+    width: `${progressWidth.value * 100}%`,
+  }));
 
   return (
     <View style={[styles.container, { height: itemHeight, width: itemWidth }]}>
-      {/* Background Player Layer: Expanded to fit full height cleanly behind overlays */}
+      {/* 1. Edge-to-edge Video Layer */}
       <View style={styles.playerContainer} pointerEvents="box-none">
         {hasPlayerError ? (
-          // Error State: Video failed to load
           <View style={styles.errorOverlay}>
             {item.poster_url && (
               <Image
                 source={{ uri: item.poster_url }}
                 style={styles.fullFill}
                 resizeMode="cover"
-                blurRadius={10}
+                blurRadius={12}
               />
             )}
             <View style={styles.errorCard}>
-              <Ionicons name="alert-circle-outline" size={40} color={colors.status.error} />
+              <Ionicons name="alert-circle-outline" size={40} color="#FFFFFF" />
               <Text style={styles.errorTitle}>Video unavailable</Text>
               <Text style={styles.errorSub}>The official trailer could not be loaded.</Text>
               <View style={styles.errorActionRow}>
@@ -190,16 +322,15 @@ export function FeedVideoItem({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Open trailer on YouTube"
-                  onPress={handleOpenExternalYouTube}
+                  onPress={() => void Linking.openURL(`https://www.youtube.com/watch?v=${item.youtube_video_id}`)}
                   style={styles.openYouTubeBtn}>
-                  <Ionicons name="logo-youtube" size={16} color={colors.gold.primary} />
+                  <Ionicons name="logo-youtube" size={16} color="#FFFFFF" />
                   <Text style={styles.openYouTubeText}>YouTube</Text>
                 </Pressable>
               </View>
             </View>
           </View>
         ) : Platform.OS === 'web' ? (
-          // Web preview iframe embed
           <View style={styles.webEmbedWrapper}>
             <iframe
               src={`https://www.youtube.com/embed/${item.youtube_video_id}?autoplay=${
@@ -215,7 +346,6 @@ export function FeedVideoItem({
             />
           </View>
         ) : (
-          // Native YouTube Player using react-native-youtube-iframe
           <View style={styles.nativePlayerWrapper}>
             <YoutubePlayer
               height={itemHeight}
@@ -248,66 +378,83 @@ export function FeedVideoItem({
         )}
       </View>
 
-      {/* Programmatic Play/Pause Tap Layer: Tapping anywhere on video toggles play/pause */}
+      {/* 2. Interactive Tap Layer (Single tap: play/pause, Double tap: like + spring heart) */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={isPlaying ? 'Pause video' : 'Play video'}
-        onPress={togglePlayPause}
+        accessibilityLabel={isPlaying ? 'Pause video. Double tap to like.' : 'Play video. Double tap to like.'}
+        onPress={handleTapSurface}
         style={styles.touchableSurface}>
+        {/* Centered Spring Heart Animation */}
+        <Animated.View pointerEvents="none" style={[styles.centeredHeart, animatedHeartStyle]}>
+          <Ionicons name="heart" size={100} color="#FFFFFF" />
+        </Animated.View>
+
+        {/* Centered Paused Indicator */}
         {!isPlaying && isFocused && isVisible && !hasPlayerError && (
           <View style={styles.pausedIndicator}>
-            <Ionicons name="play" size={44} color="rgba(255, 255, 255, 0.9)" />
+            <Ionicons name="play" size={44} color="#FFFFFF" />
           </View>
         )}
       </Pressable>
 
-      {/* Top Floating Tap-to-Unmute Pill */}
+      {/* 3. Top Floating Tap-to-Unmute Pill (Strict Monochrome) */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={isMuted ? 'Tap to unmute video audio' : 'Mute video audio'}
+        accessibilityLabel={isMuted ? 'Unmute video audio' : 'Mute video audio'}
         onPress={handleToggleMute}
         hitSlop={8}
         style={styles.unmuteButton}>
         <Ionicons
           name={isMuted ? 'volume-mute' : 'volume-high'}
           size={16}
-          color={colors.text.primary}
+          color="#FFFFFF"
         />
         <Text style={styles.unmuteText}>{isMuted ? 'Muted' : 'Sound On'}</Text>
       </Pressable>
 
-      {/* Promoted Slot Banner (Top / Overlay) */}
+      {/* 4. Promoted Slot Tag (Strict Monochrome outlined pill) */}
       {item.is_promoted && (
         <View style={styles.promotedSlotTag} pointerEvents="box-none">
-          <Badge
-            variant="promoted"
-            label={item.sponsor_name ? `Promoted • ${item.sponsor_name}` : 'Promoted'}
+          <PromotedPill
+            label="Promoted"
+            sponsorName={item.sponsor_name}
           />
         </View>
       )}
 
-      {/* Bottom Gradient Scrim */}
-      <View pointerEvents="none" style={styles.bottomScrim} />
+      {/* 5. Edge-to-edge Bottom Gradient Scrim (Svg: Transparent -> Black #000000) */}
+      <View pointerEvents="none" style={styles.bottomScrimWrap}>
+        <Svg width={itemWidth} height={420} style={StyleSheet.absoluteFill}>
+          <Defs>
+            <LinearGradient id="scrimGrad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#000000" stopOpacity="0" />
+              <Stop offset="0.4" stopColor="#000000" stopOpacity="0.4" />
+              <Stop offset="0.75" stopColor="#000000" stopOpacity="0.82" />
+              <Stop offset="1" stopColor="#000000" stopOpacity="0.98" />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width={itemWidth} height={420} fill="url(#scrimGrad)" />
+        </Svg>
+      </View>
 
-      {/* Bottom Content & Overlays (pointerEvents="box-none" so taps pass through to video container) */}
+      {/* 6. Bottom Content & Overlay (pointerEvents="box-none") */}
       <View style={styles.overlayContainer} pointerEvents="box-none">
-        {/* Left Side: Film Details & Poster Account */}
+        {/* Left Side: Metadata Column */}
         <View style={styles.detailsCol} pointerEvents="box-none">
           {/* Poster Account Row */}
           <View style={styles.posterAccountRow} pointerEvents="box-none">
-            <View style={styles.accountBadgeIcon}>
-              <Ionicons name="film" size={14} color={colors.gold.primary} />
+            <View style={styles.accountIconBadge}>
+              <Ionicons name="film" size={13} color="#FFFFFF" />
             </View>
             <Text style={styles.posterAccountName} numberOfLines={1}>
               {item.posted_by_name}
             </Text>
-            {item.is_verified && (
-              <Ionicons name="checkmark-circle" size={14} color={colors.gold.primary} />
-            )}
-            <Badge
-              variant="neutral"
-              label={item.type === 'official' || item.type === 'teaser' ? 'Official Trailer' : 'Official Clip'}
-            />
+            {item.is_verified && <VerifiedBadge size={15} />}
+            <View style={styles.typeBadge}>
+              <Text style={styles.typeBadgeText}>
+                {item.type === 'official' || item.type === 'teaser' ? 'Official Trailer' : 'Official Clip'}
+              </Text>
+            </View>
           </View>
 
           {/* Film Title & Year */}
@@ -322,7 +469,7 @@ export function FeedVideoItem({
             <Text style={styles.filmYear}>({item.release_year})</Text>
           </Pressable>
 
-          {/* Poster Thumbnail + Trailer Title */}
+          {/* Poster Thumbnail + Director / Title */}
           <View style={styles.trailerThumbnailRow} pointerEvents="box-none">
             {item.poster_url ? (
               <Pressable
@@ -345,33 +492,33 @@ export function FeedVideoItem({
             </View>
           </View>
 
-          {/* Genre Chips */}
+          {/* Genre Chips (Strict Monochrome) */}
           <View style={styles.genreChipsRow} pointerEvents="box-none">
             {item.genres.slice(0, 3).map((genre) => (
-              <Badge key={genre} label={genre} variant="neutral" />
+              <Chip key={genre} label={genre} variant="outlined" />
             ))}
           </View>
 
-          {/* Dual Scores Row */}
+          {/* Dual Scores Row (Critic & Audience: Strict Monochrome) */}
           {(item.critic_score || item.audience_score) && (
             <View style={styles.scoresRow} pointerEvents="box-none">
               {item.critic_score && (
                 <View style={styles.scorePill}>
-                  <Ionicons name="star" size={12} color={colors.gold.primary} />
+                  <Ionicons name="star" size={12} color="#FFFFFF" />
                   <Text style={styles.scoreValue}>Critic {item.critic_score}%</Text>
                 </View>
               )}
               {item.audience_score && (
                 <View style={styles.scorePill}>
-                  <Ionicons name="people" size={12} color={colors.film.audienceScore} />
-                  <Text style={styles.scoreValue}>Audience {item.audience_score}%</Text>
+                  <Ionicons name="people" size={12} color="#D4D4D4" />
+                  <Text style={styles.scoreValueAudience}>Audience {item.audience_score}%</Text>
                 </View>
               )}
             </View>
           )}
         </View>
 
-        {/* Right Side: Action Rail */}
+        {/* Right Side: Action Rail & Rotating Poster Disc */}
         <View style={styles.actionRailCol} pointerEvents="box-none">
           {/* Like Action */}
           <Pressable
@@ -383,7 +530,7 @@ export function FeedVideoItem({
               <Ionicons
                 name={isLiked ? 'heart' : 'heart-outline'}
                 size={24}
-                color={isLiked ? '#EF4444' : colors.text.primary}
+                color={isLiked ? '#000000' : '#FFFFFF'}
               />
             </View>
             <Text style={styles.actionRailCount}>
@@ -391,14 +538,19 @@ export function FeedVideoItem({
             </Text>
           </Pressable>
 
-          {/* Comment Action */}
+          {/* Comment Action (Opens Bottom Sheet) */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="View comments on trailer"
-            onPress={() => onOpenComments(item)}
+            onPress={() => {
+              try {
+                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              } catch {}
+              onOpenComments(item);
+            }}
             style={styles.actionRailBtn}>
             <View style={styles.actionIconWrap}>
-              <Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.text.primary} />
+              <Ionicons name="chatbubble-ellipses-outline" size={24} color="#FFFFFF" />
             </View>
             <Text style={styles.actionRailCount}>{item.comment_count}</Text>
           </Pressable>
@@ -413,11 +565,10 @@ export function FeedVideoItem({
               <Ionicons
                 name={isInWatchlist ? 'bookmark' : 'bookmark-outline'}
                 size={24}
-                color={isInWatchlist ? colors.gold.primary : colors.text.primary}
+                color={isInWatchlist ? '#000000' : '#FFFFFF'}
               />
             </View>
-            <Text
-              style={[styles.actionRailLabel, isInWatchlist && styles.actionRailLabelSaved]}>
+            <Text style={[styles.actionRailLabel, isInWatchlist && styles.actionRailLabelSaved]}>
               {isInWatchlist ? 'Saved' : 'Watchlist'}
             </Text>
           </Pressable>
@@ -429,7 +580,7 @@ export function FeedVideoItem({
             onPress={handleShare}
             style={styles.actionRailBtn}>
             <View style={styles.actionIconWrap}>
-              <Ionicons name="share-social-outline" size={22} color={colors.text.primary} />
+              <Ionicons name="share-social-outline" size={22} color="#FFFFFF" />
             </View>
             <Text style={styles.actionRailLabel}>Share</Text>
           </Pressable>
@@ -441,11 +592,44 @@ export function FeedVideoItem({
             onPress={handleOpenFilmDetail}
             style={styles.actionRailBtn}>
             <View style={[styles.actionIconWrap, styles.actionIconWrapFilm]}>
-              <Ionicons name="film-outline" size={22} color={colors.gold.primary} />
+              <Ionicons name="film-outline" size={20} color="#FFFFFF" />
             </View>
             <Text style={styles.actionRailLabelFilm}>View Film</Text>
           </Pressable>
+
+          {/* Rotating Poster Disc (Prompt 2.1 Visual Spec) */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Rotating vinyl disc for ${item.film_title}. Tap to view film.`}
+            onPress={handleOpenFilmDetail}
+            style={styles.discWrapper}>
+            <Animated.View style={[styles.vinylDisc, animatedDiscStyle]}>
+              {/* Concentric groove rings */}
+              <View style={styles.grooveOuter}>
+                <View style={styles.grooveInner}>
+                  {item.poster_url ? (
+                    <Image
+                      source={{ uri: item.poster_url }}
+                      style={styles.discPosterCenter}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.discPosterCenter}>
+                      <Ionicons name="disc-outline" size={20} color="#8A8A8A" />
+                    </View>
+                  )}
+                  {/* Spindle hole */}
+                  <View style={styles.spindleHole} />
+                </View>
+              </View>
+            </Animated.View>
+          </Pressable>
         </View>
+      </View>
+
+      {/* 7. Thin White Progress Line Along the Bottom */}
+      <View style={styles.bottomProgressBarTrack}>
+        <Animated.View style={[styles.bottomProgressBarFill, animatedProgressStyle]} />
       </View>
     </View>
   );
@@ -500,15 +684,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1,
   },
+  centeredHeart: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+  },
   pausedIndicator: {
     width: 72,
     height: 72,
     borderRadius: radius.full,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.4)',
   },
   unmuteButton: {
     position: 'absolute',
@@ -517,19 +710,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    borderColor: colors.border.subtle,
+    backgroundColor: 'rgba(10, 10, 10, 0.75)',
+    borderColor: 'rgba(255, 255, 255, 0.18)',
     borderWidth: 1,
     borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     minHeight: 44,
     zIndex: 10,
   },
   unmuteText: {
-    color: colors.text.primary,
+    color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   promotedSlotTag: {
     position: 'absolute',
@@ -537,25 +731,24 @@ const styles = StyleSheet.create({
     left: spacing.md,
     zIndex: 10,
   },
-  bottomScrim: {
+  bottomScrimWrap: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: 360,
-    backgroundColor: 'transparent',
-    opacity: 0.95,
+    height: 420,
+    zIndex: 2,
   },
   overlayContainer: {
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: 12,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.md,
     zIndex: 5,
   },
   detailsCol: {
@@ -570,21 +763,37 @@ const styles = StyleSheet.create({
     gap: 6,
     flexWrap: 'wrap',
   },
-  accountBadgeIcon: {
+  accountIconBadge: {
     width: 22,
     height: 22,
     borderRadius: radius.full,
-    backgroundColor: colors.gold.subtle,
+    backgroundColor: '#1F1F1F',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   posterAccountName: {
     fontSize: 13,
-    fontWeight: '700',
-    color: colors.text.primary,
-    textShadowColor: 'rgba(0,0,0,0.8)',
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0,0,0,0.9)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+  },
+  typeBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderRadius: radius.full,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  typeBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#D4D4D4',
+    textTransform: 'uppercase',
   },
   titleRow: {
     flexDirection: 'row',
@@ -593,18 +802,19 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   filmTitle: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '800',
     color: '#FFFFFF',
-    textShadowColor: 'rgba(0,0,0,0.9)',
+    textShadowColor: 'rgba(0,0,0,0.95)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
+    letterSpacing: -0.3,
   },
   filmYear: {
     fontSize: 14,
-    fontWeight: '600',
-    color: colors.gold.primary,
-    textShadowColor: 'rgba(0,0,0,0.8)',
+    fontWeight: '700',
+    color: '#D4D4D4',
+    textShadowColor: 'rgba(0,0,0,0.9)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
@@ -618,9 +828,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 52,
     borderRadius: radius.xs,
-    borderColor: colors.gold.subtleBorder,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
     borderWidth: 1,
-    backgroundColor: colors.background.secondary,
+    backgroundColor: '#141414',
   },
   trailerMetaCol: {
     flex: 1,
@@ -628,52 +838,57 @@ const styles = StyleSheet.create({
   },
   directorText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: colors.gold.primary,
-    textShadowColor: 'rgba(0,0,0,0.8)',
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0,0,0,0.9)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   trailerTitleText: {
     fontSize: 12,
-    color: colors.text.secondary,
+    color: '#D4D4D4',
     lineHeight: 16,
-    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowColor: 'rgba(0,0,0,0.9)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   genreChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 4,
+    gap: 6,
     marginTop: 2,
   },
   scoresRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginTop: 2,
+    marginTop: 3,
   },
   scorePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(18, 18, 22, 0.75)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    backgroundColor: 'rgba(10, 10, 10, 0.75)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: radius.xs,
-    borderColor: colors.border.subtle,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     borderWidth: 1,
   },
   scoreValue: {
     fontSize: 11,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  scoreValueAudience: {
+    fontSize: 11,
     fontWeight: '700',
-    color: colors.text.primary,
+    color: '#D4D4D4',
   },
   actionRailCol: {
     width: 60,
     alignItems: 'center',
-    gap: spacing.md,
+    gap: 12,
     paddingBottom: spacing.xs,
   },
   actionRailBtn: {
@@ -681,53 +896,124 @@ const styles = StyleSheet.create({
     minWidth: 44,
     minHeight: 44,
     justifyContent: 'center',
-    gap: 2,
+    gap: 3,
   },
   actionIconWrap: {
     width: 44,
     height: 44,
     borderRadius: radius.full,
-    backgroundColor: 'rgba(18, 18, 22, 0.65)',
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(10, 10, 10, 0.75)',
+    borderColor: 'rgba(255, 255, 255, 0.18)',
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   actionIconWrapLiked: {
-    borderColor: 'rgba(239, 68, 68, 0.5)',
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
   },
   actionIconWrapSaved: {
-    borderColor: colors.gold.primary,
-    backgroundColor: colors.gold.subtle,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
   },
   actionIconWrapFilm: {
-    borderColor: colors.gold.primary,
-    backgroundColor: colors.gold.subtle,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
   actionRailCount: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.text.primary,
-    textShadowColor: 'rgba(0,0,0,0.8)',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0,0,0,0.9)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   actionRailLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: colors.text.secondary,
-    textShadowColor: 'rgba(0,0,0,0.8)',
+    color: '#D4D4D4',
+    textShadowColor: 'rgba(0,0,0,0.9)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   actionRailLabelSaved: {
-    color: colors.gold.primary,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   actionRailLabelFilm: {
     fontSize: 10,
     fontWeight: '700',
-    color: colors.gold.primary,
+    color: '#FFFFFF',
+  },
+  discWrapper: {
+    marginTop: 4,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  vinylDisc: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#0A0A0A',
+    borderColor: '#2E2E2E',
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  grooveOuter: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  grooveInner: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  discPosterCenter: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+    backgroundColor: '#1F1F1F',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  spindleHole: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#000000',
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    borderWidth: 1,
+  },
+  bottomProgressBarTrack: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 2.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    zIndex: 20,
+  },
+  bottomProgressBarFill: {
+    height: '100%',
+    backgroundColor: '#FFFFFF',
   },
   errorOverlay: {
     position: 'absolute',
@@ -735,15 +1021,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#08080A',
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.xl,
   },
   errorCard: {
-    backgroundColor: 'rgba(18, 18, 22, 0.9)',
+    backgroundColor: '#0A0A0A',
     borderRadius: radius.md,
-    borderColor: colors.border.subtle,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
     borderWidth: 1,
     padding: spacing.xl,
     alignItems: 'center',
@@ -752,11 +1038,12 @@ const styles = StyleSheet.create({
   },
   errorTitle: {
     ...typography.titleSmall,
-    color: colors.text.primary,
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
   errorSub: {
     ...typography.bodySmall,
-    color: colors.text.secondary,
+    color: '#8A8A8A',
     textAlign: 'center',
   },
   errorActionRow: {
@@ -766,7 +1053,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   retryButton: {
-    backgroundColor: colors.gold.primary,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: spacing.lg,
     minHeight: 44,
     borderRadius: radius.xs,
@@ -774,15 +1061,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   retryButtonText: {
-    color: colors.text.inverse,
-    fontWeight: '700',
+    color: '#000000',
+    fontWeight: '800',
     fontSize: 13,
   },
   openYouTubeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    borderColor: colors.border.default,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
     borderWidth: 1,
     paddingHorizontal: spacing.md,
     minHeight: 44,
@@ -790,8 +1077,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   openYouTubeText: {
-    color: colors.gold.primary,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontWeight: '700',
     fontSize: 13,
   },
 });

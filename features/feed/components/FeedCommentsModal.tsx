@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, typography } from '@/lib/theme';
 import { FeedTrailerItem } from '../types';
 import { useAuth } from '@/features/auth';
@@ -62,6 +63,9 @@ export function FeedCommentsModal({ visible, item, onClose }: FeedCommentsModalP
 
   const handleAddComment = () => {
     if (!commentText.trim()) return;
+    try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
 
     const newComment: CommentEntry = {
       id: `c-${Date.now()}`,
@@ -87,26 +91,40 @@ export function FeedCommentsModal({ visible, item, onClose }: FeedCommentsModalP
       <KeyboardAvoidingView
         style={styles.modalBackdrop}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.backdropTapArea} onPress={onClose} />
+        {/* Backdrop tap to dismiss */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss comments sheet"
+          style={styles.backdropTapArea}
+          onPress={onClose}
+        />
 
+        {/* Bottom Sheet Container */}
         <View style={styles.sheetContainer}>
           {/* Header */}
           <View style={styles.sheetHeader}>
             <View style={styles.dragHandle} />
             <View style={styles.headerTitleRow}>
-              <Text style={styles.headerTitle}>
-                Discussion: {item.film_title}
-              </Text>
+              <View style={styles.titleCol}>
+                <Text style={styles.headerTitle} numberOfLines={1}>
+                  Discussion: {item.film_title}
+                </Text>
+                <Text style={styles.commentsCountText}>{comments.length} comments</Text>
+              </View>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Close comments"
-                onPress={onClose}
+                onPress={() => {
+                  try {
+                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  } catch {}
+                  onClose();
+                }}
                 hitSlop={8}
                 style={styles.closeBtn}>
-                <Ionicons name="close" size={20} color={colors.text.secondary} />
+                <Ionicons name="close" size={20} color="#FFFFFF" />
               </Pressable>
             </View>
-            <Text style={styles.commentsCountText}>{comments.length} comments</Text>
           </View>
 
           {/* Comments List */}
@@ -138,7 +156,7 @@ export function FeedCommentsModal({ visible, item, onClose }: FeedCommentsModalP
                   accessibilityLabel="Like comment"
                   style={styles.commentLikeBtn}
                   hitSlop={8}>
-                  <Ionicons name="heart-outline" size={14} color={colors.text.tertiary} />
+                  <Ionicons name="heart-outline" size={14} color="#8A8A8A" />
                   <Text style={styles.commentLikeCount}>{comment.likeCount}</Text>
                 </Pressable>
               </View>
@@ -150,7 +168,7 @@ export function FeedCommentsModal({ visible, item, onClose }: FeedCommentsModalP
             <TextInput
               accessibilityLabel="Add to discussion"
               placeholder="Add your thoughts on this film..."
-              placeholderTextColor={colors.text.tertiary}
+              placeholderTextColor="#8A8A8A"
               value={commentText}
               onChangeText={setCommentText}
               style={styles.textInput}
@@ -161,14 +179,16 @@ export function FeedCommentsModal({ visible, item, onClose }: FeedCommentsModalP
               onPress={handleAddComment}
               disabled={!commentText.trim()}
               style={[
-                styles.sendBtn,
-                !commentText.trim() && styles.sendBtnDisabled,
+                styles.postBtn,
+                !commentText.trim() && styles.postBtnDisabled,
               ]}>
-              <Ionicons
-                name="send"
-                size={16}
-                color={commentText.trim() ? colors.text.inverse : colors.text.tertiary}
-              />
+              <Text
+                style={[
+                  styles.postBtnText,
+                  !commentText.trim() && styles.postBtnTextDisabled,
+                ]}>
+                Post
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -180,35 +200,35 @@ export function FeedCommentsModal({ visible, item, onClose }: FeedCommentsModalP
 const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
   },
   backdropTapArea: {
     flex: 1,
   },
   sheetContainer: {
-    height: '65%',
-    backgroundColor: colors.background.secondary,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
+    backgroundColor: '#0A0A0A',
+    borderTopLeftRadius: radius.cardLarge,
+    borderTopRightRadius: radius.cardLarge,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     borderTopWidth: 1,
-    borderTopColor: colors.border.subtle,
-    overflow: 'hidden',
+    height: '65%',
+    maxHeight: 580,
   },
   sheetHeader: {
-    alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.md,
+    borderBottomColor: 'rgba(255, 255, 255, 0.12)',
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.subtle,
+    alignItems: 'center',
   },
   dragHandle: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.border.default,
-    marginBottom: spacing.xs,
+    backgroundColor: '#8A8A8A',
+    marginBottom: spacing.md,
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -216,10 +236,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     width: '100%',
   },
+  titleCol: {
+    flex: 1,
+    gap: 2,
+  },
   headerTitle: {
     ...typography.titleSmall,
-    color: colors.text.primary,
-    flex: 1,
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  commentsCountText: {
+    fontSize: 11,
+    color: '#8A8A8A',
   },
   closeBtn: {
     minWidth: 44,
@@ -227,13 +255,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  commentsCountText: {
-    fontSize: 12,
-    color: colors.text.tertiary,
-    alignSelf: 'flex-start',
-  },
   commentsList: {
-    padding: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     gap: spacing.md,
   },
   commentItem: {
@@ -245,14 +269,16 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: radius.full,
-    backgroundColor: colors.gold.subtle,
+    backgroundColor: '#1F1F1F',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarInitial: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.gold.primary,
+    color: '#FFFFFF',
   },
   commentContent: {
     flex: 1,
@@ -265,72 +291,81 @@ const styles = StyleSheet.create({
   },
   authorName: {
     fontSize: 12,
-    fontWeight: '600',
-    color: colors.text.primary,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   criticBadge: {
-    backgroundColor: colors.gold.subtle,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
     paddingHorizontal: 4,
     paddingVertical: 1,
-    borderRadius: 3,
   },
   criticBadgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: colors.gold.primary,
+    color: '#000000',
   },
   timeAgo: {
     fontSize: 11,
-    color: colors.text.tertiary,
+    color: '#8A8A8A',
   },
   commentBody: {
     fontSize: 13,
-    color: colors.text.secondary,
+    color: '#D4D4D4',
     lineHeight: 18,
   },
   commentLikeBtn: {
     alignItems: 'center',
-    minWidth: 32,
-    minHeight: 32,
+    gap: 2,
+    paddingTop: 2,
+    minWidth: 44,
+    minHeight: 44,
     justifyContent: 'center',
   },
   commentLikeCount: {
     fontSize: 10,
-    color: colors.text.tertiary,
-    marginTop: 2,
+    color: '#8A8A8A',
+    fontWeight: '600',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
-    backgroundColor: colors.background.tertiary,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.subtle,
     gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopColor: 'rgba(255, 255, 255, 0.12)',
+    borderTopWidth: 1,
+    backgroundColor: '#0A0A0A',
+    marginBottom: Platform.OS === 'ios' ? 20 : 0,
   },
   textInput: {
     flex: 1,
-    backgroundColor: colors.background.secondary,
-    borderRadius: radius.sm,
-    borderColor: colors.border.default,
+    backgroundColor: '#141414',
+    borderColor: 'rgba(255, 255, 255, 0.18)',
     borderWidth: 1,
+    borderRadius: radius.card,
     paddingHorizontal: spacing.md,
-    color: colors.text.primary,
-    fontSize: 13,
     minHeight: 44,
+    color: '#FFFFFF',
+    fontSize: 13,
   },
-  sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.sm,
-    backgroundColor: colors.gold.primary,
+  postBtn: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing.md,
+    minHeight: 44,
+    borderRadius: radius.card,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  sendBtnDisabled: {
-    backgroundColor: colors.background.secondary,
-    borderWidth: 1,
-    borderColor: colors.border.default,
+  postBtnDisabled: {
+    backgroundColor: '#1F1F1F',
+  },
+  postBtnText: {
+    color: '#000000',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  postBtnTextDisabled: {
+    color: '#8A8A8A',
   },
 });
-

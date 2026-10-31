@@ -10,6 +10,9 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
+
 import { colors, spacing, radius, typography } from '@/lib/theme';
 import { FeedType, FeedTrailerItem } from '@/features/feed/types';
 import { useInfiniteFeed } from '@/features/feed/useFeed';
@@ -86,6 +89,16 @@ export default function FeedScreen() {
     );
   };
 
+  const handleToggleFeedType = (nextType: FeedType) => {
+    if (feedType !== nextType) {
+      try {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {}
+      setFeedType(nextType);
+      setVisibleIndex(0);
+    }
+  };
+
   return (
     <View
       style={styles.container}
@@ -95,18 +108,14 @@ export default function FeedScreen() {
           setContainerHeight(measuredHeight);
         }
       }}>
-      {/* Top Floating Feed Switcher ("For You" | "Latest") */}
+      {/* 3. Translucent Blurred Top Bar with Segmented Toggle (expo-blur) */}
       <View style={styles.topHeader} pointerEvents="box-none">
-        <View style={styles.tabTogglePill}>
+        <BlurView intensity={70} tint="dark" style={styles.tabTogglePill}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Switch to For You feed from followed festivals and studios"
-            onPress={() => {
-              if (feedType !== 'for_you') {
-                setFeedType('for_you');
-                setVisibleIndex(0);
-              }
-            }}
+            accessibilityState={{ selected: feedType === 'for_you' }}
+            onPress={() => handleToggleFeedType('for_you')}
             style={[styles.toggleTab, feedType === 'for_you' && styles.toggleTabActive]}>
             <Text
               style={[
@@ -115,20 +124,13 @@ export default function FeedScreen() {
               ]}>
               For You
             </Text>
-            {feedType === 'for_you' && <View style={styles.activeDot} />}
           </Pressable>
-
-          <View style={styles.toggleDivider} />
 
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Switch to Latest feed of all Philippine trailers and clips"
-            onPress={() => {
-              if (feedType !== 'latest') {
-                setFeedType('latest');
-                setVisibleIndex(0);
-              }
-            }}
+            accessibilityState={{ selected: feedType === 'latest' }}
+            onPress={() => handleToggleFeedType('latest')}
             style={[styles.toggleTab, feedType === 'latest' && styles.toggleTabActive]}>
             <Text
               style={[
@@ -137,22 +139,21 @@ export default function FeedScreen() {
               ]}>
               Latest
             </Text>
-            {feedType === 'latest' && <View style={styles.activeDot} />}
           </Pressable>
-        </View>
+        </BlurView>
       </View>
 
-      {/* Main Content States */}
+      {/* Main Content States (Strict Monochrome) */}
       {isLoading ? (
         // Loading State
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.gold.primary} />
+          <ActivityIndicator size="large" color="#FFFFFF" />
           <Text style={styles.loadingText}>Loading Philippine cinema feed...</Text>
         </View>
       ) : isError ? (
         // Error State
         <View style={styles.centerContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color={colors.status.error} />
+          <Ionicons name="alert-circle-outline" size={48} color="#FFFFFF" />
           <Text style={styles.errorTitle}>Unable to load trailers</Text>
           <Text style={styles.errorSub}>
             {(error as any)?.message || 'Please check your connection and retry.'}
@@ -168,7 +169,7 @@ export default function FeedScreen() {
       ) : feedItems.length === 0 ? (
         // Empty State
         <View style={styles.centerContainer}>
-          <Ionicons name="film-outline" size={54} color={colors.gold.primary} />
+          <Ionicons name="film-outline" size={54} color="#FFFFFF" />
           <Text style={styles.emptyTitle}>
             {feedType === 'for_you' ? 'Your Feed is Quiet' : 'No trailers found'}
           </Text>
@@ -217,21 +218,21 @@ export default function FeedScreen() {
               onRefresh={() => {
                 void refetch();
               }}
-              tintColor={colors.gold.primary}
-              colors={[colors.gold.primary]}
+              tintColor="#FFFFFF"
+              colors={['#FFFFFF']}
             />
           }
           ListFooterComponent={
             isFetchingNextPage ? (
               <View style={styles.footerLoader}>
-                <ActivityIndicator size="small" color={colors.gold.primary} />
+                <ActivityIndicator size="small" color="#FFFFFF" />
               </View>
             ) : undefined
           }
         />
       )}
 
-      {/* Comments Bottom Sheet Modal */}
+      {/* 7. Comments Bottom Sheet Modal */}
       <FeedCommentsModal
         visible={Boolean(selectedCommentItem)}
         item={selectedCommentItem}
@@ -248,7 +249,7 @@ const styles = StyleSheet.create({
   },
   topHeader: {
     position: 'absolute',
-    top: 48,
+    top: 50,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -258,96 +259,80 @@ const styles = StyleSheet.create({
   tabTogglePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(8, 8, 10, 0.72)',
+    backgroundColor: 'rgba(10, 10, 10, 0.65)',
     borderColor: 'rgba(255, 255, 255, 0.12)',
     borderWidth: 1,
     borderRadius: radius.full,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    shadowColor: '#000000',
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    padding: 3,
+    overflow: 'hidden',
   },
   toggleTab: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    minHeight: 38,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    minHeight: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
+    borderRadius: radius.full,
   },
   toggleTabActive: {
-    // Active styling
+    backgroundColor: '#FFFFFF',
   },
   toggleTabText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: '#8A8A8A',
+    letterSpacing: -0.2,
   },
   toggleTabTextActive: {
-    color: '#FFFFFF',
+    color: '#000000',
     fontWeight: '800',
-  },
-  activeDot: {
-    position: 'absolute',
-    bottom: 2,
-    width: 14,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: colors.gold.primary,
-  },
-  toggleDivider: {
-    width: 1,
-    height: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   centerContainer: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.xl,
     gap: spacing.sm,
   },
   loadingText: {
-    color: colors.text.secondary,
+    color: '#8A8A8A',
     marginTop: spacing.md,
     fontSize: 14,
   },
   errorTitle: {
     ...typography.titleMedium,
-    color: colors.text.primary,
+    color: '#FFFFFF',
     marginTop: spacing.sm,
   },
   errorSub: {
     ...typography.bodySmall,
-    color: colors.text.secondary,
+    color: '#8A8A8A',
     textAlign: 'center',
     paddingHorizontal: spacing.md,
   },
   retryButton: {
     marginTop: spacing.lg,
-    backgroundColor: colors.gold.primary,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: spacing.xl,
     minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: radius.xs,
+    borderRadius: radius.card,
   },
   retryButtonText: {
-    color: colors.text.inverse,
-    fontWeight: '700',
+    color: '#000000',
+    fontWeight: '800',
     fontSize: 14,
   },
   emptyTitle: {
     ...typography.titleMedium,
-    color: colors.text.primary,
+    color: '#FFFFFF',
     marginTop: spacing.sm,
   },
   emptySub: {
     ...typography.body,
-    color: colors.text.secondary,
+    color: '#8A8A8A',
     textAlign: 'center',
     paddingHorizontal: spacing.lg,
     lineHeight: 20,
@@ -355,16 +340,16 @@ const styles = StyleSheet.create({
   },
   exploreButton: {
     marginTop: spacing.lg,
-    backgroundColor: colors.gold.primary,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: spacing.xl,
     minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: radius.xs,
+    borderRadius: radius.card,
   },
   exploreButtonText: {
-    color: colors.text.inverse,
-    fontWeight: '700',
+    color: '#000000',
+    fontWeight: '800',
     fontSize: 14,
   },
   footerLoader: {
