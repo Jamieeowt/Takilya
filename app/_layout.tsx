@@ -197,6 +197,12 @@ function RootNavigationLayout() {
           }}
         />
         <Stack.Screen
+          name="admin/promoted"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
           name="trailers/post"
           options={{
             presentation: 'modal',

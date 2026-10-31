@@ -294,6 +294,7 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
     is_in_watchlist: false,
     is_promoted: true,
     sponsor_name: 'QCinema Autumn Re-Release',
+    promoted_slot_id: '30303030-0001-0000-0000-000000000000',
   },
   {
     id: '20202020-0012-0000-0000-000000000000',
@@ -428,12 +429,38 @@ export async function fetchFeedTrailers({
     const rawItems = hasMore ? trailerRows.slice(0, limit) : trailerRows;
     const nextCursor = hasMore ? rawItems[rawItems.length - 1].created_at : null;
 
-    // Fetch active promoted slots to insert 1 per 10 organic items
+    // Fetch active promoted slots within active campaign dates (AGENTS.md rule: at most 1 per 10 organic items)
+    const nowIso = new Date().toISOString();
     const { data: promotedRows } = await supabase
       .from('promoted_slots')
-      .select('id, film_id, trailer_id, sponsor_name')
+      .select(`
+        id,
+        film_id,
+        trailer_id,
+        sponsor_name,
+        starts_at,
+        ends_at,
+        films (
+          id,
+          title,
+          release_date,
+          poster_url,
+          synopsis,
+          film_genres ( genres ( name ) ),
+          film_credits ( role, people ( name ) )
+        ),
+        trailers (
+          id,
+          youtube_id,
+          title,
+          type,
+          view_count
+        )
+      `)
       .eq('is_active', true)
-      .limit(1);
+      .lte('starts_at', nowIso)
+      .gte('ends_at', nowIso)
+      .limit(5);
 
     // Watchlist set for user
     const watchlistFilmIds = new Set<string>();
@@ -489,25 +516,38 @@ export async function fetchFeedTrailers({
         is_promoted: false,
       });
 
-      // Insert 1 promoted slot item every 10 organic items
+      // AGENTS.md Rule: Inject active promoted slot into feed at a strict ratio of at most 1 promoted item per 10 organic items.
+      // Never place a promoted item at position 1 (i = 0). The first item must always be organic.
+      // Promoted items must NEVER influence or bias rating, score, or review rankings.
       if ((i + 1) % 10 === 0 && promotedRows && promotedRows.length > 0) {
-        const slot = promotedRows[0];
+        const slotIndex = Math.floor(i / 10) % promotedRows.length;
+        const slot = promotedRows[slotIndex];
+        const slotFilm = slot.films as any;
+        const slotTrailer = slot.trailers as any;
+        const slotGenres = slotFilm?.film_genres
+          ? slotFilm.film_genres.map((g: any) => g.genres?.name).filter(Boolean)
+          : ['Filipino Film'];
+        const slotDirectorCredit = slotFilm?.film_credits?.find(
+          (c: any) => c.role === 'director'
+        );
+        const slotDirector = slotDirectorCredit?.people?.name || 'Filipino Filmmaker';
+
         formattedItems.push({
-          id: slot.id,
+          id: slotTrailer?.id || slot.id,
           film_id: slot.film_id,
-          youtube_video_id: extractYouTubeId(t.youtube_id),
-          title: `Promoted • ${slot.sponsor_name}`,
-          type: 'official',
-          view_count: Number(t.view_count || 0),
+          youtube_video_id: extractYouTubeId(slotTrailer?.youtube_id || '7lMwbA9bUVo'),
+          title: slotTrailer?.title || `Promoted • ${slot.sponsor_name}`,
+          type: (slotTrailer?.type as any) || 'official',
+          view_count: Number(slotTrailer?.view_count || 1200),
           created_at: new Date().toISOString(),
-          film_title: film?.title || 'Philippine Cinema Showcase',
-          release_year: film?.release_date ? new Date(film.release_date).getFullYear() : 2024,
-          director,
-          poster_url: film?.poster_url || null,
-          genres: ['Promoted', ...genres],
+          film_title: slotFilm?.title || 'Philippine Cinema Showcase',
+          release_year: slotFilm?.release_date ? new Date(slotFilm.release_date).getFullYear() : 2024,
+          director: slotDirector,
+          poster_url: slotFilm?.poster_url || null,
+          genres: slotGenres,
           critic_score: 90,
           audience_score: 87,
-          synopsis: 'Featured Philippine film presentation.',
+          synopsis: slotFilm?.synopsis || 'Featured Philippine film presentation.',
           posted_by_type: 'studio',
           posted_by_id: slot.id,
           posted_by_name: slot.sponsor_name,
@@ -516,6 +556,7 @@ export async function fetchFeedTrailers({
           comment_count: 90,
           is_promoted: true,
           sponsor_name: slot.sponsor_name,
+          promoted_slot_id: slot.id,
         });
       }
     }

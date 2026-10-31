@@ -32,6 +32,7 @@ import { extractYouTubeId } from '@/lib/youtube';
 import { FeedTrailerItem } from '../types';
 import { useIncrementTrailerView, useToggleWatchlist } from '../useFeed';
 import { useAuth } from '@/features/auth';
+import { useRecordPromotedEvent } from '@/features/promoted';
 
 interface FeedVideoItemProps {
   item: FeedTrailerItem;
@@ -86,6 +87,17 @@ export function FeedVideoItem({
   const hasIncrementedView = useRef(false);
   const incrementViewMutation = useIncrementTrailerView();
   const toggleWatchlistMutation = useToggleWatchlist();
+  const recordPromotedEventMutation = useRecordPromotedEvent();
+
+  // Helper to record tap events on promoted items
+  const recordPromotedTap = () => {
+    if (item.is_promoted && (item.promoted_slot_id || item.id)) {
+      recordPromotedEventMutation.mutate({
+        slot_id: item.promoted_slot_id || item.id,
+        event_type: 'tap',
+      });
+    }
+  };
 
   // Double tap detection & spring heart animation
   const lastTapRef = useRef<number>(0);
@@ -182,6 +194,14 @@ export function FeedVideoItem({
       timer = setTimeout(() => {
         hasIncrementedView.current = true;
         incrementViewMutation.mutate(item.id);
+
+        // Record impression for promoted slot after 3 seconds of continuous view
+        if (item.is_promoted && (item.promoted_slot_id || item.id)) {
+          recordPromotedEventMutation.mutate({
+            slot_id: item.promoted_slot_id || item.id,
+            event_type: 'impression',
+          });
+        }
       }, 3000);
     }
 
@@ -236,6 +256,7 @@ export function FeedVideoItem({
     try {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
+    recordPromotedTap();
     const nextState = !isLiked;
     setIsLiked(nextState);
     setLikeCount((prev) => (nextState ? prev + 1 : Math.max(0, prev - 1)));
@@ -252,6 +273,7 @@ export function FeedVideoItem({
     try {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
+    recordPromotedTap();
     if (!user) {
       router.push('/(tabs)/account' as any);
       return;
@@ -271,6 +293,7 @@ export function FeedVideoItem({
     try {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
+    recordPromotedTap();
     try {
       await Share.share({
         title: item.film_title,
@@ -284,6 +307,7 @@ export function FeedVideoItem({
     try {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
+    recordPromotedTap();
     const filmId = item.film_id || item.id;
     if (onPressFilm) {
       onPressFilm(filmId);

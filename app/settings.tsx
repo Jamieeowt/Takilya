@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Video,
   FileCheck,
+  BarChart3,
 } from 'lucide-react-native';
 
 import { useAuth, useRole } from '@/features/auth';
@@ -212,6 +213,26 @@ export default function SettingsScreen() {
                         </Text>
                         <Text style={[styles.settingSubtitle, { color: tokens.text.secondary }]}>
                           Review and approve pending verification requests.
+                        </Text>
+                      </View>
+                    </View>
+                    <ChevronRight size={18} color={tokens.text.tertiary} />
+                  </Pressable>
+
+                  <View style={[styles.divider, { backgroundColor: tokens.border.hairline }]} />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Promoted trailer slots management"
+                    onPress={() => router.push('/admin/promoted' as any)}
+                    style={styles.menuRow}>
+                    <View style={styles.menuRowLeft}>
+                      <BarChart3 size={20} color={tokens.text.primary} />
+                      <View style={styles.menuRowText}>
+                        <Text style={[styles.settingTitle, { color: tokens.text.primary }]}>
+                          Promoted Trailer Slots
+                        </Text>
+                        <Text style={[styles.settingSubtitle, { color: tokens.text.secondary }]}>
+                          Campaign management & 1-per-10 feed analytics.
                         </Text>
                       </View>
                     </View>

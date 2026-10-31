@@ -35,6 +35,7 @@ export interface FeedTrailerItem {
   // Promoted slot metadata
   is_promoted: boolean;
   sponsor_name?: string | null;
+  promoted_slot_id?: string | null;
 }
 
 export interface FeedPageResponse {
