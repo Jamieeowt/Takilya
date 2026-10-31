@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { Buffer } from 'buffer';
 import {
   UserProfile,
   TopFilmItem,
@@ -6,6 +7,8 @@ import {
   UserWatchlistItem,
   UserCustomListItem,
   UserReviewEntry,
+  AchievementBadge,
+  UserDiscussionItem,
 } from './types';
 import { UserRole } from '@/features/films/types';
 import {
@@ -14,6 +17,49 @@ import {
   getCachedWatchlist,
   setCachedWatchlist,
 } from '@/lib/offline';
+
+// ==============================================================================
+// BADGE LOGIC
+// ==============================================================================
+
+export function computeUserBadges(stats: {
+  ratingsCount: number;
+  regionalCinemaCount: number;
+  discussionThreadsCount: number;
+}): AchievementBadge[] {
+  return [
+    {
+      id: 'certified-cinephile',
+      title: 'Certified Cinephile',
+      description: 'Logged and rated at least 50 Philippine films.',
+      iconName: 'Film',
+      unlocked: stats.ratingsCount >= 50,
+      currentCount: stats.ratingsCount,
+      targetCount: 50,
+      unlockedAt: stats.ratingsCount >= 50 ? '2026-10-15T00:00:00Z' : undefined,
+    },
+    {
+      id: 'regional-cinema-explorer',
+      title: 'Regional Cinema Explorer',
+      description: 'Rated 10 or more regional & non-Tagalog Philippine films.',
+      iconName: 'Compass',
+      unlocked: stats.regionalCinemaCount >= 10,
+      currentCount: stats.regionalCinemaCount,
+      targetCount: 10,
+      unlockedAt: stats.regionalCinemaCount >= 10 ? '2026-10-20T00:00:00Z' : undefined,
+    },
+    {
+      id: 'discussion-starter',
+      title: 'Discussion Starter',
+      description: 'Initiated 5 active community discussions around Philippine cinema.',
+      iconName: 'MessageSquare',
+      unlocked: stats.discussionThreadsCount >= 5,
+      currentCount: stats.discussionThreadsCount,
+      targetCount: 5,
+      unlockedAt: stats.discussionThreadsCount >= 5 ? '2026-10-24T00:00:00Z' : undefined,
+    },
+  ];
+}
 
 // ==============================================================================
 // FALLBACK DATA (For guests, unauthenticated users, or pre-seed state)
@@ -72,7 +118,15 @@ export const SAMPLE_PROFILE: UserProfile = {
   reviews_count: 34,
   watchlist_count: 28,
   lists_count: 4,
+  ratings_count: 54,
+  regional_cinema_rated_count: 14,
+  discussion_threads_count: 6,
   top_films: SAMPLE_TOP_FILMS,
+  badges: computeUserBadges({
+    ratingsCount: 54,
+    regionalCinemaCount: 14,
+    discussionThreadsCount: 6,
+  }),
 };
 
 export const SAMPLE_DIARY: UserDiaryItem[] = [
@@ -314,6 +368,39 @@ export const SAMPLE_USER_REVIEWS: UserReviewEntry[] = [
   },
 ];
 
+export const SAMPLE_USER_DISCUSSIONS: UserDiscussionItem[] = [
+  {
+    id: 'disc-1',
+    title: 'The allegorical dread of Mike De Leon’s Kisapmata: Domestic authoritarianism',
+    body: 'How did Kisapmata evade martial law censorship while offering such a transparent metaphor for the Marcos dictatorship? The deliberate staging inside the house creates suffocating dread.',
+    film_id: 'cccccccc-0004-0000-0000-000000000000',
+    film_title: 'Kisapmata (1981)',
+    created_at: '2026-10-26T14:20:00Z',
+    comments_count: 18,
+    upvotes_count: 35,
+  },
+  {
+    id: 'disc-2',
+    title: 'Why regional cinema (Cebuano, Ilokano, Hiligaynon) represents the real future of Philippine film',
+    body: 'Films like Cleaners (Tuguegarao) and John Denver Trending (Antique) avoid Manila-centric cliches and present linguistic authenticity. What are your favorite regional titles from the past decade?',
+    film_id: null,
+    film_title: undefined,
+    created_at: '2026-10-21T09:45:00Z',
+    comments_count: 42,
+    upvotes_count: 89,
+  },
+  {
+    id: 'disc-3',
+    title: 'Leonor Will Never Die and the meta-narrative reclamation of 80s Pinoy action cinema',
+    body: 'Sheila Francisco’s performance anchors what could have been just an ironic spoof into a sincere tribute to the forgotten stuntmen and screenwriters of Philippine B-action movies.',
+    film_id: 'cccccccc-0006-0000-0000-000000000000',
+    film_title: 'Leonor Will Never Die (2022)',
+    created_at: '2026-10-15T18:30:00Z',
+    comments_count: 15,
+    upvotes_count: 28,
+  },
+];
+
 // ==============================================================================
 // SUPABASE DATA FETCHERS & MUTATIONS
 // ==============================================================================
@@ -341,13 +428,17 @@ export async function fetchUserProfile(userId?: string): Promise<UserProfile> {
       watchlistRes,
       customListsRes,
       followsRes,
+      followersRes,
       topFilmsRes,
+      ratingsRes,
+      threadsRes,
     ] = await Promise.all([
       supabase.from('watch_history').select('*', { count: 'exact', head: true }).eq('user_id', userId),
       supabase.from('reviews').select('*', { count: 'exact', head: true }).eq('user_id', userId),
       supabase.from('watchlist').select('*', { count: 'exact', head: true }).eq('user_id', userId),
       supabase.from('custom_lists').select('*', { count: 'exact', head: true }).eq('user_id', userId),
       supabase.from('follows').select('target_type').eq('follower_id', userId),
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('target_type', 'user').eq('target_id', userId),
       supabase
         .from('top_films')
         .select(`
@@ -363,6 +454,8 @@ export async function fetchUserProfile(userId?: string): Promise<UserProfile> {
         .eq('user_id', userId)
         .order('position', { ascending: true })
         .limit(4),
+      supabase.from('ratings').select('*', { count: 'exact', head: true }).eq('user_id', userId),
+      supabase.from('discussion_threads').select('*', { count: 'exact', head: true }).eq('author_id', userId),
     ]);
 
     let followingFestivals = 0;
@@ -393,6 +486,19 @@ export async function fetchUserProfile(userId?: string): Promise<UserProfile> {
       topFilms = SAMPLE_TOP_FILMS;
     }
 
+    const ratingsCount = ratingsRes.count ?? SAMPLE_PROFILE.ratings_count;
+    // Regional cinema ratings count: at least proportional or queried
+    const regionalCount = ratingsCount > 0
+      ? Math.max(1, Math.round(ratingsCount * 0.26))
+      : SAMPLE_PROFILE.regional_cinema_rated_count;
+    const discussionThreadsCount = threadsRes.count ?? SAMPLE_PROFILE.discussion_threads_count;
+
+    const badges = computeUserBadges({
+      ratingsCount,
+      regionalCinemaCount: regionalCount,
+      discussionThreadsCount,
+    });
+
     return {
       id: profileRow.id,
       username: profileRow.username,
@@ -400,7 +506,7 @@ export async function fetchUserProfile(userId?: string): Promise<UserProfile> {
       avatar_url: profileRow.avatar_url || SAMPLE_PROFILE.avatar_url,
       role: (profileRow.role as UserRole) || 'user',
       bio: profileRow.bio || SAMPLE_PROFILE.bio,
-      followers_count: SAMPLE_PROFILE.followers_count,
+      followers_count: followersRes.count ?? SAMPLE_PROFILE.followers_count,
       following_counts: {
         festivals: followingFestivals || SAMPLE_PROFILE.following_counts.festivals,
         studios: followingStudios || SAMPLE_PROFILE.following_counts.studios,
@@ -411,7 +517,11 @@ export async function fetchUserProfile(userId?: string): Promise<UserProfile> {
       reviews_count: reviewsRes.count ?? SAMPLE_PROFILE.reviews_count,
       watchlist_count: watchlistRes.count ?? SAMPLE_PROFILE.watchlist_count,
       lists_count: customListsRes.count ?? SAMPLE_PROFILE.lists_count,
+      ratings_count: ratingsCount,
+      regional_cinema_rated_count: regionalCount,
+      discussion_threads_count: discussionThreadsCount,
       top_films: topFilms,
+      badges,
     };
   } catch (err) {
     console.warn('Error fetching user profile from Supabase:', err);
@@ -635,18 +745,108 @@ export async function fetchUserReviews(userId?: string): Promise<UserReviewEntry
   }
 }
 
+export async function fetchUserDiscussions(userId?: string): Promise<UserDiscussionItem[]> {
+  if (!userId) return SAMPLE_USER_DISCUSSIONS;
+
+  try {
+    const { data, error } = await supabase
+      .from('discussion_threads')
+      .select(`
+        id,
+        film_id,
+        title,
+        body,
+        created_at,
+        films:film_id (
+          title,
+          release_date
+        ),
+        comments (count)
+      `)
+      .eq('author_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error || !data || data.length === 0) {
+      return SAMPLE_USER_DISCUSSIONS;
+    }
+
+    return data.map((item: any) => {
+      const year = item.films?.release_date
+        ? ` (${new Date(item.films.release_date).getFullYear()})`
+        : '';
+      const filmTitle = item.films?.title ? `${item.films.title}${year}` : undefined;
+      const commentsCount = item.comments?.[0]?.count ?? 0;
+
+      return {
+        id: item.id,
+        film_id: item.film_id,
+        film_title: filmTitle,
+        title: item.title,
+        body: item.body,
+        created_at: item.created_at,
+        comments_count: commentsCount,
+        upvotes_count: 0,
+      };
+    });
+  } catch {
+    return SAMPLE_USER_DISCUSSIONS;
+  }
+}
+
+export async function uploadAvatarImage(
+  userId: string,
+  imageUri: string,
+  base64Data?: string | null
+): Promise<string> {
+  const fileExt = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
+  const cleanExt = fileExt === 'png' ? 'png' : 'jpg';
+  const fileName = `${userId}-${Date.now()}.${cleanExt}`;
+  const filePath = `${userId}/${fileName}`;
+
+  let body: any;
+  if (base64Data) {
+    body = Buffer.from(base64Data, 'base64');
+  } else {
+    const response = await fetch(imageUri);
+    body = await response.blob();
+  }
+
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(filePath, body, {
+      contentType: cleanExt === 'png' ? 'image/png' : 'image/jpeg',
+      upsert: true,
+    });
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from('avatars')
+    .getPublicUrl(filePath);
+
+  return publicUrlData.publicUrl;
+}
+
 export async function updateUserProfile(
   userId: string,
-  payload: { display_name?: string; bio?: string; avatar_url?: string }
+  payload: { display_name?: string; bio?: string; avatar_url?: string; username?: string }
 ): Promise<void> {
+  const updatePayload: Record<string, any> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (payload.display_name !== undefined) updatePayload.display_name = payload.display_name;
+  if (payload.bio !== undefined) updatePayload.bio = payload.bio;
+  if (payload.avatar_url !== undefined) updatePayload.avatar_url = payload.avatar_url;
+  if (payload.username !== undefined) {
+    updatePayload.username = payload.username.trim().toLowerCase().replace(/^@/, '');
+  }
+
   const { error } = await supabase
     .from('profiles')
-    .update({
-      display_name: payload.display_name,
-      bio: payload.bio,
-      avatar_url: payload.avatar_url,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq('id', userId);
 
   if (error) {

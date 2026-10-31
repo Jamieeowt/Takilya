@@ -5,6 +5,8 @@ import {
   fetchUserWatchlist,
   fetchUserCustomLists,
   fetchUserReviews,
+  fetchUserDiscussions,
+  uploadAvatarImage,
   updateUserProfile,
   updateTopFilms,
   removeFromWatchlist,
@@ -52,6 +54,28 @@ export function useUserReviews(userId?: string) {
   });
 }
 
+export function useUserDiscussions(userId?: string) {
+  return useQuery({
+    queryKey: ['userDiscussions', userId],
+    queryFn: () => fetchUserDiscussions(userId),
+    enabled: true,
+  });
+}
+
+export function useUploadAvatar() {
+  return useMutation({
+    mutationFn: ({
+      userId,
+      imageUri,
+      base64Data,
+    }: {
+      userId: string;
+      imageUri: string;
+      base64Data?: string | null;
+    }) => uploadAvatarImage(userId, imageUri, base64Data),
+  });
+}
+
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
 
@@ -61,7 +85,7 @@ export function useUpdateProfile() {
       payload,
     }: {
       userId: string;
-      payload: { display_name?: string; bio?: string; avatar_url?: string };
+      payload: { display_name?: string; bio?: string; avatar_url?: string; username?: string };
     }) => updateUserProfile(userId, payload),
     onSuccess: (_, variables) => {
       void queryClient.invalidateQueries({

@@ -12,7 +12,7 @@ import { radius, spacing, typography } from '@/lib/theme';
 
 interface ProfileReviewsTabProps {
   reviews: UserReviewEntry[];
-  onWriteReviewPress: () => void;
+  onWriteReviewPress?: () => void;
 }
 
 const DEFAULT_BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}Z';
@@ -31,13 +31,15 @@ export function ProfileReviewsTab({
           title="No Reviews Written Yet"
           description="Publish in-depth reviews, critique performances and cinematography, and engage with the Philippine cinema community."
         />
-        <Button
-          label="Write a Review"
-          variant="primary"
-          onPress={onWriteReviewPress}
-          icon={<Plus size={16} color="#000000" />}
-          style={styles.emptyCta}
-        />
+        {onWriteReviewPress && (
+          <Button
+            label="Write a Review"
+            variant="primary"
+            onPress={onWriteReviewPress}
+            icon={<Plus size={16} color="#000000" />}
+            style={styles.emptyCta}
+          />
+        )}
       </View>
     );
   }

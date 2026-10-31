@@ -16,7 +16,7 @@ const DEFAULT_BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}Z';
 
 interface TopFavoritesShowcaseProps {
   topFilms: TopFilmItem[];
-  onOpenReorder: () => void;
+  onOpenReorder?: () => void;
 }
 
 export function TopFavoritesShowcase({
@@ -49,19 +49,21 @@ export function TopFavoritesShowcase({
           <Text style={styles.subtitle}>Personal canon of Philippine masterworks</Text>
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Reorder top 4 favorite films"
-          onPress={() => {
-            try {
-              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            } catch {}
-            onOpenReorder();
-          }}
-          style={styles.reorderBtn}>
-          <SlidersHorizontal size={14} color="#D4D4D4" />
-          <Text style={styles.reorderText}>Reorder</Text>
-        </Pressable>
+        {onOpenReorder && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Reorder top 4 favorite films"
+            onPress={() => {
+              try {
+                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              } catch {}
+              onOpenReorder();
+            }}
+            style={styles.reorderBtn}>
+            <SlidersHorizontal size={14} color="#D4D4D4" />
+            <Text style={styles.reorderText}>Reorder</Text>
+          </Pressable>
+        )}
       </View>
 
       {/* 4 Poster Slots */}
@@ -103,20 +105,29 @@ export function TopFavoritesShowcase({
             <Pressable
               key={`empty-pos-${position}`}
               accessibilityRole="button"
-              accessibilityLabel={`Empty favorite slot ${position}. Tap to select a film`}
+              accessibilityLabel={`Empty favorite slot ${position}`}
               onPress={onOpenReorder}
+              disabled={!onOpenReorder}
               style={styles.slotItem}>
               <View
                 style={[
                   styles.emptySlot,
                   { width: SLOT_WIDTH, height: SLOT_HEIGHT },
                 ]}>
-                <Plus size={18} color="#8A8A8A" />
-                <View style={styles.rankBadge}>
-                  <Text style={styles.rankText}>{position}</Text>
-                </View>
+                {onOpenReorder ? (
+                  <Plus size={18} color="#8A8A8A" />
+                ) : (
+                  <View style={styles.rankBadge}>
+                    <Text style={styles.rankText}>{position}</Text>
+                  </View>
+                )}
+                {onOpenReorder && (
+                  <View style={styles.rankBadge}>
+                    <Text style={styles.rankText}>{position}</Text>
+                  </View>
+                )}
               </View>
-              <Text style={styles.emptyTitle}>Add Film</Text>
+              <Text style={styles.emptyTitle}>{onOpenReorder ? 'Add Film' : `Slot ${position}`}</Text>
             </Pressable>
           );
         })}

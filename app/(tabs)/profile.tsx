@@ -19,6 +19,7 @@ import {
   useUserWatchlist,
   useUserCustomLists,
   useUserReviews,
+  useUserDiscussions,
   useUpdateProfile,
   useUpdateTopFilms,
   useRemoveFromWatchlist,
@@ -29,11 +30,13 @@ import { UserCustomListItem } from '@/features/account/types';
 import {
   ProfileHeader,
   TopFavoritesShowcase,
+  AchievementBadges,
   RecentActivityRow,
   ProfileDiaryTab,
   ProfileWatchlistTab,
   ProfileListsTab,
   ProfileReviewsTab,
+  ProfileDiscussionsTab,
   EditProfileSheet,
   ReorderTopFilmsSheet,
   CreateListSheet,
@@ -44,7 +47,7 @@ import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
 import { GlassHeader } from '@/components/ui/GlassHeader';
 import { radius, spacing, typography } from '@/lib/theme';
 
-const TAB_OPTIONS = ['Diary', 'Watchlist', 'Lists', 'Reviews'];
+const TAB_OPTIONS = ['Diary', 'Watchlist', 'Lists', 'Reviews', 'Discussions'];
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -91,6 +94,12 @@ export default function ProfileScreen() {
     refetch: refetchReviews,
   } = useUserReviews(user?.id);
 
+  const {
+    data: discussions = [],
+    isLoading: isDiscussionsLoading,
+    refetch: refetchDiscussions,
+  } = useUserDiscussions(user?.id);
+
   // Mutations
   const updateProfileMutation = useUpdateProfile();
   const updateTopFilmsMutation = useUpdateTopFilms();
@@ -106,6 +115,7 @@ export default function ProfileScreen() {
         refetchWatchlist(),
         refetchLists(),
         refetchReviews(),
+        refetchDiscussions(),
       ]);
     } finally {
       setIsRefreshing(false);
@@ -119,7 +129,12 @@ export default function ProfileScreen() {
     await signOut();
   };
 
-  const handleSaveProfile = (payload: { display_name: string; bio: string; avatar_url?: string }) => {
+  const handleSaveProfile = (payload: {
+    display_name: string;
+    username: string;
+    bio: string;
+    avatar_url?: string;
+  }) => {
     if (user?.id) {
       updateProfileMutation.mutate({
         userId: user.id,
@@ -184,23 +199,20 @@ export default function ProfileScreen() {
       <GlassHeader
         title={currentProfile.display_name}
         right={
-          isAuthenticated ? (
+          <View style={styles.headerRightRow}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Sign out of Takilya"
-              onPress={handleSignOut}
+              accessibilityLabel="Open Settings"
+              onPress={() => {
+                try {
+                  void Haptics.selectionAsync();
+                } catch {}
+                router.push('/settings' as any);
+              }}
               style={styles.headerActionBtn}>
-              <LogOut size={18} color="#8A8A8A" />
+              <Settings size={19} color="#FFFFFF" />
             </Pressable>
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Sign in to Takilya"
-              onPress={() => router.push('/(auth)/login' as any)}
-              style={styles.headerActionBtn}>
-              <LogIn size={18} color="#FFFFFF" />
-            </Pressable>
-          )
+          </View>
         }
       />
 
@@ -240,6 +252,7 @@ export default function ProfileScreen() {
           activeTab={activeTab}
           onSelectTab={setActiveTab}
           onEditPress={() => setIsEditProfileVisible(true)}
+          isOwnProfile={true}
         />
 
         {/* 2. Pinned & Favorites Showcase */}
@@ -248,19 +261,23 @@ export default function ProfileScreen() {
           onOpenReorder={() => setIsReorderVisible(true)}
         />
 
+        {/* 3. Activity Achievement Badges */}
+        <AchievementBadges badges={currentProfile.badges} />
+
         {/* Recent Activity Feed */}
         <RecentActivityRow
           activity={diary}
           onViewAllPress={() => setActiveTab(0)}
         />
 
-        {/* 3. Sticky Tabbed Sections (Segmented Control) */}
+        {/* 4. Sticky Tabbed Sections (Segmented Control) */}
         <View style={styles.tabsSection}>
           <SegmentedControl
             options={TAB_OPTIONS}
             selectedIndex={activeTab}
             onChange={setActiveTab}
             style={styles.segmentedControl}
+            scrollable
           />
         </View>
 
@@ -295,6 +312,13 @@ export default function ProfileScreen() {
             <ProfileReviewsTab
               reviews={reviews}
               onWriteReviewPress={handleExploreRedirect}
+            />
+          )}
+
+          {activeTab === 4 && (
+            <ProfileDiscussionsTab
+              discussions={discussions}
+              onStartDiscussionPress={handleExploreRedirect}
             />
           )}
         </View>
@@ -353,6 +377,10 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerRightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   guestBanner: {
     flexDirection: 'row',

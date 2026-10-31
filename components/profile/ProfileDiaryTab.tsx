@@ -12,7 +12,7 @@ import { radius, spacing, typography } from '@/lib/theme';
 
 interface ProfileDiaryTabProps {
   diary: UserDiaryItem[];
-  onStartLoggingPress: () => void;
+  onStartLoggingPress?: () => void;
 }
 
 const DEFAULT_BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}Z';
@@ -30,13 +30,15 @@ export function ProfileDiaryTab({
           title="No Films Logged Yet"
           description="Keep track of every Filipino film you watch, rate your experiences, and build your cinephile diary."
         />
-        <Button
-          label="Start Logging Films"
-          variant="primary"
-          onPress={onStartLoggingPress}
-          icon={<Plus size={16} color="#000000" />}
-          style={styles.emptyCta}
-        />
+        {onStartLoggingPress && (
+          <Button
+            label="Start Logging Films"
+            variant="primary"
+            onPress={onStartLoggingPress}
+            icon={<Plus size={16} color="#000000" />}
+            style={styles.emptyCta}
+          />
+        )}
       </View>
     );
   }

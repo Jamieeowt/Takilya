@@ -10,7 +10,7 @@ import { radius, spacing, typography } from '@/lib/theme';
 
 interface ProfileListsTabProps {
   lists: UserCustomListItem[];
-  onCreateListPress: () => void;
+  onCreateListPress?: () => void;
   onSelectList?: (list: UserCustomListItem) => void;
 }
 
@@ -28,13 +28,15 @@ export function ProfileListsTab({
           title="No Lists Created Yet"
           description="Organize your favorite Filipino films into themed collections, share recommendations, and track curated selections."
         />
-        <Button
-          label="Create a List"
-          variant="primary"
-          onPress={onCreateListPress}
-          icon={<Plus size={16} color="#000000" />}
-          style={styles.emptyCta}
-        />
+        {onCreateListPress && (
+          <Button
+            label="Create a List"
+            variant="primary"
+            onPress={onCreateListPress}
+            icon={<Plus size={16} color="#000000" />}
+            style={styles.emptyCta}
+          />
+        )}
       </View>
     );
   }
@@ -55,12 +57,14 @@ export function ProfileListsTab({
         <Text style={styles.sectionSubtitle}>
           {lists.length} {lists.length === 1 ? 'Curated List' : 'Curated Lists'}
         </Text>
-        <Button
-          label="New List"
-          variant="secondary"
-          onPress={onCreateListPress}
-          icon={<Plus size={14} color="#FFFFFF" />}
-        />
+        {onCreateListPress && (
+          <Button
+            label="New List"
+            variant="secondary"
+            onPress={onCreateListPress}
+            icon={<Plus size={14} color="#FFFFFF" />}
+          />
+        )}
       </View>
 
       {/* List of Custom Lists */}

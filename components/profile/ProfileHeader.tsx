@@ -6,6 +6,7 @@ import { Edit3, Share2, Film, Star, Bookmark, ListFilter } from 'lucide-react-na
 import { UserProfile } from '@/features/account/types';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
+import { FollowButton } from '@/components/social/FollowButton';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { radius, spacing, typography } from '@/lib/theme';
 
@@ -13,7 +14,8 @@ interface ProfileHeaderProps {
   profile: UserProfile;
   activeTab: number;
   onSelectTab: (index: number) => void;
-  onEditPress: () => void;
+  onEditPress?: () => void;
+  isOwnProfile?: boolean;
 }
 
 export function ProfileHeader({
@@ -21,6 +23,7 @@ export function ProfileHeader({
   activeTab,
   onSelectTab,
   onEditPress,
+  isOwnProfile = true,
 }: ProfileHeaderProps) {
   const router = useRouter();
 
@@ -187,13 +190,23 @@ export function ProfileHeader({
 
       {/* Quick Action Buttons */}
       <View style={styles.actionsRow}>
-        <Button
-          label="Edit Profile"
-          variant="secondary"
-          onPress={onEditPress}
-          icon={<Edit3 size={15} color="#FFFFFF" />}
-          style={styles.editBtn}
-        />
+        {isOwnProfile ? (
+          <Button
+            label="Edit Profile"
+            variant="secondary"
+            onPress={onEditPress || (() => {})}
+            icon={<Edit3 size={15} color="#FFFFFF" />}
+            style={styles.editBtn}
+          />
+        ) : (
+          <FollowButton
+            targetType="user"
+            targetId={profile.id}
+            targetName={profile.display_name}
+            size="md"
+            style={styles.followBtn}
+          />
+        )}
 
         <Button
           label="Share Profile"
@@ -344,6 +357,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   editBtn: {
+    flex: 1,
+    minHeight: 44,
+  },
+  followBtn: {
     flex: 1,
     minHeight: 44,
   },

@@ -9,7 +9,11 @@ import { View, ActivityIndicator } from 'react-native';
 import 'react-native-reanimated';
 
 import { queryClient } from '@/lib/queryClient';
-import { TakilyaNavigationTheme } from '@/lib/theme';
+import {
+  TakilyaNavigationTheme,
+  ThemeProvider as TakilyaThemeProvider,
+  useTheme,
+} from '@/lib/theme';
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext';
 import { ErrorBoundary as TakilyaErrorBoundary } from '@/components/ErrorBoundary';
 import { OfflineBanner } from '@/components/ui/OfflineBanner';
@@ -22,8 +26,35 @@ export const unstable_settings = {
 
 SplashScreen.preventAutoHideAsync();
 
+const NavDarkTheme = {
+  dark: true,
+  colors: {
+    primary: '#FFFFFF',
+    background: '#000000',
+    card: '#0A0A0A',
+    text: '#FFFFFF',
+    border: 'rgba(255, 255, 255, 0.12)',
+    notification: '#FFFFFF',
+  },
+  fonts: TakilyaNavigationTheme.fonts,
+};
+
+const NavLightTheme = {
+  dark: false,
+  colors: {
+    primary: '#000000',
+    background: '#FFFFFF',
+    card: '#F5F5F5',
+    text: '#000000',
+    border: 'rgba(0, 0, 0, 0.12)',
+    notification: '#000000',
+  },
+  fonts: TakilyaNavigationTheme.fonts,
+};
+
 function RootNavigationLayout() {
   const { isAuthenticated, isLoading } = useAuth();
+  const { isDark } = useTheme();
   const segments = useSegments();
   const router = useRouter();
 
@@ -50,30 +81,38 @@ function RootNavigationLayout() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000000' }}>
-        <ActivityIndicator size="large" color="#ffffff" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: isDark ? '#000000' : '#FFFFFF' }}>
+        <ActivityIndicator size="large" color={isDark ? '#ffffff' : '#000000'} />
       </View>
     );
   }
 
+  const activeNavTheme = isDark ? NavDarkTheme : NavLightTheme;
+
   return (
-    <ThemeProvider value={TakilyaNavigationTheme}>
-      <StatusBar style="light" />
+    <ThemeProvider value={activeNavTheme}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <OfflineBanner />
       <Stack
         screenOptions={{
           headerStyle: {
-            backgroundColor: TakilyaNavigationTheme.colors.card,
+            backgroundColor: activeNavTheme.colors.card,
           },
-          headerTintColor: TakilyaNavigationTheme.colors.primary,
+          headerTintColor: activeNavTheme.colors.primary,
           headerTitleStyle: {
-            color: TakilyaNavigationTheme.colors.text,
+            color: activeNavTheme.colors.text,
           },
         }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen
           name="film/[id]"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="user/[id]/index"
           options={{
             headerShown: false,
           }}
@@ -87,6 +126,13 @@ function RootNavigationLayout() {
         <Stack.Screen
           name="user/[id]/following"
           options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="settings"
+          options={{
+            presentation: 'modal',
             headerShown: false,
           }}
         />
@@ -125,9 +171,11 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <TakilyaErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <RootNavigationLayout />
-          </AuthProvider>
+          <TakilyaThemeProvider>
+            <AuthProvider>
+              <RootNavigationLayout />
+            </AuthProvider>
+          </TakilyaThemeProvider>
         </QueryClientProvider>
       </TakilyaErrorBoundary>
     </GestureHandlerRootView>

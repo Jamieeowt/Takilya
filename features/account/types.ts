@@ -1,5 +1,27 @@
 import { FollowTargetType, UserRole, WatchMedium } from '@/features/films/types';
 
+export interface AchievementBadge {
+  id: string; // 'certified-cinephile' | 'regional-cinema-explorer' | 'discussion-starter'
+  title: string;
+  description: string;
+  iconName: 'Film' | 'Compass' | 'MessageSquare';
+  unlocked: boolean;
+  currentCount: number;
+  targetCount: number;
+  unlockedAt?: string;
+}
+
+export interface UserDiscussionItem {
+  id: string;
+  title: string;
+  body: string;
+  film_id?: string | null;
+  film_title?: string;
+  created_at: string;
+  comments_count: number;
+  upvotes_count: number;
+}
+
 export interface UserProfile {
   id: string;
   username: string;
@@ -18,7 +40,11 @@ export interface UserProfile {
   reviews_count: number;
   watchlist_count: number;
   lists_count: number;
+  ratings_count: number;
+  regional_cinema_rated_count: number;
+  discussion_threads_count: number;
   top_films: TopFilmItem[];
+  badges: AchievementBadge[];
 }
 
 export interface TopFilmItem {

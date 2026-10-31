@@ -17,7 +17,7 @@ const CARD_WIDTH = Math.floor((SCREEN_WIDTH - HORIZONTAL_PADDING - GAP * 2) / 3)
 
 interface ProfileWatchlistTabProps {
   watchlist: UserWatchlistItem[];
-  onExplorePress: () => void;
+  onExplorePress?: () => void;
   onRemoveFromWatchlist?: (filmId: string) => void;
 }
 
@@ -92,13 +92,15 @@ export function ProfileWatchlistTab({
           title="Your Watchlist is Empty"
           description="Save Philippine films you want to see. Track trailers, festival selections, and availability."
         />
-        <Button
-          label="Explore Films"
-          variant="primary"
-          onPress={onExplorePress}
-          icon={<Plus size={16} color="#000000" />}
-          style={styles.emptyCta}
-        />
+        {onExplorePress && (
+          <Button
+            label="Explore Films"
+            variant="primary"
+            onPress={onExplorePress}
+            icon={<Plus size={16} color="#000000" />}
+            style={styles.emptyCta}
+          />
+        )}
       </View>
     );
   }
