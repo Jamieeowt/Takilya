@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
 import { colors, spacing, radius, typography } from '@/lib/theme';
@@ -26,6 +27,7 @@ const { width: SCREEN_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
 const DEFAULT_ITEM_HEIGHT = WINDOW_HEIGHT - 60;
 
 export default function FeedScreen() {
+  const router = useRouter();
   const { user } = useAuth();
   const [feedType, setFeedType] = useState<FeedType>('latest');
   const [containerHeight, setContainerHeight] = useState(DEFAULT_ITEM_HEIGHT);
@@ -71,6 +73,15 @@ export default function FeedScreen() {
     itemVisiblePercentThreshold: 60,
   }).current;
 
+  // Navigate to Film Detail Screen
+  const handleNavigateToFilm = (item: FeedTrailerItem) => {
+    try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    const filmId = item.film_id || item.id;
+    router.push(`/film/${filmId}` as any);
+  };
+
   // Render individual vertical feed page
   const renderItem = ({ item, index }: { item: FeedTrailerItem; index: number }) => {
     const isVisible = index === visibleIndex;
@@ -85,6 +96,7 @@ export default function FeedScreen() {
         itemHeight={containerHeight}
         itemWidth={SCREEN_WIDTH}
         onOpenComments={(targetItem) => setSelectedCommentItem(targetItem)}
+        onPressFilm={() => handleNavigateToFilm(item)}
       />
     );
   };

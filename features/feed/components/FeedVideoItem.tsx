@@ -41,6 +41,7 @@ interface FeedVideoItemProps {
   itemHeight: number;
   itemWidth: number;
   onOpenComments: (item: FeedTrailerItem) => void;
+  onPressFilm?: (filmId: string) => void;
 }
 
 export function FeedVideoItem({
@@ -52,6 +53,7 @@ export function FeedVideoItem({
   itemHeight,
   itemWidth,
   onOpenComments,
+  onPressFilm,
 }: FeedVideoItemProps) {
   const router = useRouter();
   const isFocused = useIsFocused();
@@ -269,10 +271,12 @@ export function FeedVideoItem({
     try {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
-    router.push({
-      pathname: '/film/[id]' as any,
-      params: { id: item.film_id },
-    });
+    const filmId = item.film_id || item.id;
+    if (onPressFilm) {
+      onPressFilm(filmId);
+    } else {
+      router.push(`/film/${filmId}` as any);
+    }
   };
 
   // Animated styles
@@ -484,24 +488,32 @@ export function FeedVideoItem({
               </Pressable>
             ) : null}
 
-            <View style={styles.trailerMetaCol} pointerEvents="box-none">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`View film card for ${item.film_title}`}
+              onPress={handleOpenFilmDetail}
+              style={styles.trailerMetaCol}>
               <Text style={styles.directorText}>Dir. {item.director}</Text>
               <Text style={styles.trailerTitleText} numberOfLines={2}>
                 {item.title}
               </Text>
-            </View>
+            </Pressable>
           </View>
 
           {/* Genre Chips (Strict Monochrome) */}
           <View style={styles.genreChipsRow} pointerEvents="box-none">
             {item.genres.slice(0, 3).map((genre) => (
-              <Chip key={genre} label={genre} variant="outlined" />
+              <Chip key={genre} label={genre} variant="outlined" onPress={handleOpenFilmDetail} />
             ))}
           </View>
 
           {/* Dual Scores Row (Critic & Audience: Strict Monochrome) */}
           {(item.critic_score || item.audience_score) && (
-            <View style={styles.scoresRow} pointerEvents="box-none">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Scores for ${item.film_title}. Tap to view film details.`}
+              onPress={handleOpenFilmDetail}
+              style={styles.scoresRow}>
               {item.critic_score && (
                 <View style={styles.scorePill}>
                   <Ionicons name="star" size={12} color="#FFFFFF" />
@@ -514,7 +526,7 @@ export function FeedVideoItem({
                   <Text style={styles.scoreValueAudience}>Audience {item.audience_score}%</Text>
                 </View>
               )}
-            </View>
+            </Pressable>
           )}
         </View>
 
