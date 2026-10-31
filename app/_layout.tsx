@@ -142,6 +142,30 @@ function RootNavigationLayout() {
           }}
         />
         <Stack.Screen
+          name="people/index"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="person/[id]"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="studios/index"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="studio/[id]"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
           name="settings"
           options={{
             presentation: 'modal',

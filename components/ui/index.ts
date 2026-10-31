@@ -21,3 +21,5 @@ export * from './Toast';
 export * from './GlassHeader';
 export * from './GlassTabBar';
 export * from './OfflineBanner';
+export * from './OfficialClipsRail';
+

@@ -27,6 +27,11 @@ import { FilteredFilmsGrid } from '@/features/explore/components/FilteredFilmsGr
 import { ExploreSkeleton } from '@/features/explore/components/ExploreSkeleton';
 import { useFestivals } from '@/features/festivals/useFestivals';
 import { FestivalsRail } from '@/components/festivals';
+import { usePeople } from '@/features/people/usePeople';
+import { PeopleRail } from '@/components/people';
+import { useStudios } from '@/features/studios/useStudios';
+import { StudiosRail } from '@/components/studios';
+
 
 export default function ExploreScreen() {
   // Search state with debouncing (300ms)
@@ -95,12 +100,24 @@ export default function ExploreScreen() {
     refetch: refetchFestivals,
   } = useFestivals();
 
+  const {
+    data: people = [],
+    refetch: refetchPeople,
+  } = usePeople();
+
+  const {
+    data: studios = [],
+    refetch: refetchStudios,
+  } = useStudios();
+
   const handleRefresh = () => {
     if (isFiltering) {
       void refetchFiltered();
     } else {
       void refetchSections();
       void refetchFestivals();
+      void refetchPeople();
+      void refetchStudios();
     }
   };
 
@@ -184,6 +201,12 @@ export default function ExploreScreen() {
 
           {/* Section: Philippine Film Festivals Database Rail */}
           <FestivalsRail festivals={festivals} />
+
+          {/* Section: Directors & Actors Database Rail */}
+          <PeopleRail people={people} />
+
+          {/* Section: Studios & Production Outfits Database Rail */}
+          <StudiosRail studios={studios} />
 
           {/* Section 2: National Artist Masterworks */}
           <NationalArtistSection items={sectionsData.nationalArtists} />
