@@ -71,10 +71,9 @@ describe('Unit Test: Vimeo Video Utility & Embed Generation', () => {
   });
 
   describe('getVimeoEmbedUrl', () => {
-    it('generates compliant background autoplay looping embed URL', () => {
+    it('generates compliant autoplay looping embed URL with muted state', () => {
       const url = getVimeoEmbedUrl('769367056');
       expect(url).toContain('https://player.vimeo.com/video/769367056');
-      expect(url).toContain('background=1');
       expect(url).toContain('autoplay=1');
       expect(url).toContain('loop=1');
       expect(url).toContain('byline=0');
@@ -83,6 +82,11 @@ describe('Unit Test: Vimeo Video Utility & Embed Generation', () => {
       expect(url).toContain('muted=1');
       expect(url).toContain('playsinline=1');
       expect(url).toContain('dnt=1');
+    });
+
+    it('generates unmuted embed URL when isMuted is false', () => {
+      const url = getVimeoEmbedUrl('769367056', false);
+      expect(url).toContain('muted=0');
     });
 
     it('falls back to DEFAULT_VIMEO_FALLBACK_ID if empty', () => {

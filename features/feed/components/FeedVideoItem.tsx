@@ -4,12 +4,22 @@ import {
   Text,
   StyleSheet,
   Pressable,
+  TouchableOpacity,
   Share,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Image } from 'expo-image';
 import { useRouter, useIsFocused } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import {
+  Heart,
+  MessageCircle,
+  Bookmark,
+  Share2,
+  Disc,
+  Volume2,
+  VolumeX,
+} from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
@@ -24,16 +34,22 @@ import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { spacing, typography } from '@/lib/theme';
-import { extractVimeoId, getVimeoEmbedUrl, DEFAULT_VIMEO_FALLBACK_ID } from '@/lib/video';
+import { extractVimeoId, DEFAULT_VIMEO_FALLBACK_ID } from '@/lib/video';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { PromotedPill } from '@/components/ui/PromotedPill';
-import { Chip } from '@/components/ui/Chip';
 import { FeedTrailerItem } from '../types';
 import { logFailedTrailer } from '../api';
 import { useIncrementTrailerView, useToggleWatchlist } from '../useFeed';
 import { useAuth } from '@/features/auth';
 import { useRecordPromotedEvent } from '@/features/promoted';
 import { ReportModal } from '@/components/moderation';
+
+function formatCount(num?: number): string {
+  if (num === undefined || num === null || num < 0) return '0';
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1).replace(/\.0$/, '')}K`;
+  return num.toString();
+}
 
 interface FeedVideoItemProps {
   item: FeedTrailerItem;
@@ -64,11 +80,13 @@ export function FeedVideoItem({
   const isFocused = useIsFocused();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const webViewRef = useRef<any>(null);
 
+  const [isMuted, setIsMuted] = useState(externalIsMuted ?? true);
   const [hasError, setHasError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [isLiked, setIsLiked] = useState(Boolean(item.is_liked));
-  const [likeCount, setLikeCount] = useState(item.like_count);
+  const [likeCount, setLikeCount] = useState<number>((item as any).likes_count ?? item.like_count ?? 0);
   const [isInWatchlist, setIsInWatchlist] = useState(Boolean(item.is_in_watchlist));
   const [isReportModalVisible, setIsReportModalVisible] = useState(false);
   const [isExpandedSynopsis, setIsExpandedSynopsis] = useState(false);
@@ -81,12 +99,53 @@ export function FeedVideoItem({
   // Active state for lifecycle virtualization
   const isActive = isVisible && isFocused;
 
-  // Resolve Vimeo ID & background autoplay embed URL
+  // Resolve clean Vimeo ID & build URL with dynamic audio parameter
   const cleanVimeoId =
     item.vimeo_id ||
     extractVimeoId(item.video_url) ||
     DEFAULT_VIMEO_FALLBACK_ID;
-  const vimeoUri = getVimeoEmbedUrl(cleanVimeoId);
+  const vimeoUri = `https://player.vimeo.com/video/${cleanVimeoId}?autoplay=1&loop=1&byline=0&title=0&portrait=0&muted=${isMuted ? '1' : '0'}&playsinline=1&transparent=0&dnt=1`;
+
+  // Send volume/mute message to Vimeo via postMessage API
+  const setVimeoAudio = (muted: boolean) => {
+    const js = `
+      (function() {
+        try {
+          var msg = JSON.stringify({ method: '${muted ? 'setMuted' : 'setVolume'}', value: ${muted ? 'true' : '1'} });
+          window.postMessage(msg, '*');
+          var iframes = document.getElementsByTagName('iframe');
+          for (var i = 0; i < iframes.length; i++) {
+            iframes[i].contentWindow.postMessage(msg, '*');
+          }
+          if (window.player) {
+            if (typeof window.player.setVolume === 'function') window.player.setVolume(${muted ? 0 : 1});
+            if (typeof window.player.setMuted === 'function') window.player.setMuted(${muted});
+          }
+        } catch (e) {}
+      })();
+      true;
+    `;
+    webViewRef.current?.injectJavaScript(js);
+  };
+
+  // Sync external mute state
+  useEffect(() => {
+    if (externalIsMuted !== undefined && externalIsMuted !== isMuted) {
+      setIsMuted(externalIsMuted);
+      setVimeoAudio(externalIsMuted);
+    }
+  }, [externalIsMuted]);
+
+  // Handle Mute/Unmute Toggle
+  const handleToggleMute = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    setVimeoAudio(nextMuted);
+    if (onToggleMute) {
+      onToggleMute();
+    }
+  };
 
   // View count increment
   useEffect(() => {
@@ -169,16 +228,13 @@ export function FeedVideoItem({
       triggerDoubleTapHeart();
       if (!isLiked) {
         setIsLiked(true);
-        setLikeCount((prev) => prev + 1);
+        setLikeCount((prev: number) => prev + 1);
       }
     } else {
       lastTapRef.current = now;
       tapTimeoutRef.current = setTimeout(() => {
-        // Single tap: toggle mute / play
-        Haptics.selectionAsync().catch(() => {});
-        if (onToggleMute) {
-          onToggleMute();
-        }
+        // Single tap: toggle audio mute/unmute
+        handleToggleMute();
       }, DOUBLE_TAP_DELAY);
     }
   };
@@ -189,10 +245,10 @@ export function FeedVideoItem({
     recordPromotedTap();
     if (isLiked) {
       setIsLiked(false);
-      setLikeCount((prev) => Math.max(0, prev - 1));
+      setLikeCount((prev: number) => Math.max(0, prev - 1));
     } else {
       setIsLiked(true);
-      setLikeCount((prev) => prev + 1);
+      setLikeCount((prev: number) => prev + 1);
       triggerDoubleTapHeart();
     }
   };
@@ -244,16 +300,15 @@ export function FeedVideoItem({
     setRetryKey((prev) => prev + 1);
   };
 
-  // Safe area bottom padding offset according to docs/SAFE_AREAS.md
-  const bottomInset = Math.max(insets.bottom, 12);
-  const overlayBottomOffset = 56 + bottomInset + 16;
+  const culturalTags: string[] = (item as any).cultural_tags || item.genres || [];
 
   return (
-    <View style={[styles.container, { height: itemHeight, width: itemWidth }]}>
-      {/* 1. Vimeo Video Player Embed Layer (WebView) */}
+    <View style={[styles.fullScreenContainer, { height: itemHeight, width: itemWidth }]}>
+      {/* 1. Background Video Layer (WebView) */}
       <View style={StyleSheet.absoluteFill}>
         {isActive && !hasError ? (
           <WebView
+            ref={webViewRef}
             key={`vimeo-${cleanVimeoId}-${retryKey}`}
             source={{ uri: vimeoUri }}
             style={styles.webView}
@@ -271,20 +326,38 @@ export function FeedVideoItem({
             showsHorizontalScrollIndicator={false}
             showsVerticalScrollIndicator={false}
             originWhitelist={['*']}
-            onShouldStartLoadWithRequest={(request) => {
+            injectedJavaScript={`
+              (function() {
+                try {
+                  var applyAudio = function() {
+                    var msg = JSON.stringify({ method: '${isMuted ? 'setMuted' : 'setVolume'}', value: ${isMuted ? 'true' : '1'} });
+                    window.postMessage(msg, '*');
+                    var iframes = document.getElementsByTagName('iframe');
+                    for (var i = 0; i < iframes.length; i++) {
+                      iframes[i].contentWindow.postMessage(msg, '*');
+                    }
+                  };
+                  window.addEventListener('load', applyAudio);
+                  setTimeout(applyAudio, 500);
+                  setTimeout(applyAudio, 1500);
+                } catch(e) {}
+              })();
+              true;
+            `}
+            onShouldStartLoadWithRequest={(request: any) => {
               return (
                 request.url.startsWith('https://player.vimeo.com') ||
                 request.url.startsWith('https://vimeo.com') ||
                 request.url.startsWith('about:blank')
               );
             }}
-            onError={(e) => {
+            onError={(e: any) => {
               console.warn('[Vimeo WebView Error]:', e.nativeEvent);
               setHasError(true);
-              logFailedTrailer(item.id, e.nativeEvent.description || 'WebView error');
+              logFailedTrailer(item.id, e.nativeEvent?.description || 'WebView error');
             }}
-            onHttpError={(e) => {
-              if (e.nativeEvent.statusCode >= 400) {
+            onHttpError={(e: any) => {
+              if (e.nativeEvent?.statusCode >= 400) {
                 console.warn('[Vimeo HTTP Error]:', e.nativeEvent.statusCode);
                 setHasError(true);
                 logFailedTrailer(item.id, `HTTP ${e.nativeEvent.statusCode}`);
@@ -336,12 +409,12 @@ export function FeedVideoItem({
         )}
       </View>
 
-      {/* 2. Transparent Background Tap Surface for Play/Pause & Double-Tap Like */}
+      {/* 2. Transparent Background Tap Surface for Play/Pause, Audio & Double-Tap Like */}
       <Pressable
         style={StyleSheet.absoluteFill}
         onPress={handleVideoBackgroundTap}
         accessibilityRole="button"
-        accessibilityLabel="Video playback area, single tap to unmute, double tap to like"
+        accessibilityLabel="Video playback area, single tap to toggle audio, double tap to like"
       />
 
       {/* 3. Centered Double-Tap Animated Heart */}
@@ -349,14 +422,31 @@ export function FeedVideoItem({
         <Ionicons name="heart" size={96} color="#FFFFFF" />
       </Animated.View>
 
-      {/* 4. Top Promoted Slot Tag (if sponsored) */}
+      {/* 4. Top Header: Promoted Slot Tag (Left) & Floating Speaker Button (Right) */}
       {item.is_promoted && (
-        <View style={[styles.promotedSlotTag, { top: insets.top + 16 }]} pointerEvents="box-none">
+        <View style={[styles.promotedSlotTag, { top: Math.max(insets.top + 8, 48) }]} pointerEvents="box-none">
           <PromotedPill label="Promoted" sponsorName={item.sponsor_name} />
         </View>
       )}
 
-      {/* 5. Bottom Gradient Scrim for typography readability */}
+      <View style={[styles.topRightControls, { top: Math.max(insets.top + 8, 48) }]} pointerEvents="box-none">
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={isMuted ? 'Unmute video audio' : 'Mute video audio'}
+          onPress={handleToggleMute}
+          style={styles.speakerButton}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}
+        >
+          {isMuted ? (
+            <VolumeX color="#FFFFFF" size={20} />
+          ) : (
+            <Volume2 color="#FFFFFF" size={20} />
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* 5. Bottom Gradient Scrim for readable white typography */}
       <View pointerEvents="none" style={styles.bottomScrimWrap}>
         <Svg width={itemWidth} height={420} style={StyleSheet.absoluteFill}>
           <Defs>
@@ -371,111 +461,67 @@ export function FeedVideoItem({
         </Svg>
       </View>
 
-      {/* 6. Bottom Overlay: Metadata (Left) & Action Rail (Right) with pointerEvents="box-none" */}
-      <View
-        style={[
-          styles.overlayContainer,
-          { paddingBottom: overlayBottomOffset },
-        ]}
-        pointerEvents="box-none"
-      >
-        {/* Left Side: Metadata Column */}
-        <View style={styles.detailsCol} pointerEvents="box-none">
-          {/* Entity Row (Poster account & verified badge) */}
-          <View style={styles.posterAccountRow} pointerEvents="box-none">
-            <View style={styles.accountIconBadge}>
-              <Ionicons name="film" size={13} color="#FFFFFF" />
-            </View>
-            <Text style={styles.posterAccountName} numberOfLines={1}>
-              {item.posted_by_name}
+      {/* 6. Bottom TikTok Interface (Pinned Flush to Bottom above Tab Bar) */}
+      <View pointerEvents="box-none" style={styles.bottomOverlayContainer}>
+        {/* Left Side: Film Information */}
+        <View pointerEvents="box-none" style={styles.bottomLeftDetails}>
+          {/* Badge Row (Festival & Official Trailer) */}
+          <View style={styles.badgeRow} pointerEvents="box-none">
+            <Text style={styles.festivalBadge} numberOfLines={1}>
+              {item.posted_by_name || 'Cinemalaya'}
             </Text>
-            {item.is_verified && <VerifiedBadge size={15} />}
-            <View style={styles.typeBadge}>
-              <Text style={styles.typeBadgeText}>
-                {item.type === 'official' || item.type === 'teaser' ? 'Official Trailer' : 'Official Clip'}
-              </Text>
-            </View>
+            {item.is_verified && <VerifiedBadge size={13} />}
+            <Text style={styles.officialBadge}>
+              {item.type === 'clip' ? 'OFFICIAL CLIP' : item.type === 'teaser' ? 'TEASER' : 'OFFICIAL TRAILER'}
+            </Text>
           </View>
 
-          {/* Film Title & Year */}
-          <Pressable
+          {/* Film Title & Release Year */}
+          <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel={`View film details for ${item.film_title}`}
             onPress={handleOpenFilmDetail}
-            style={styles.titleRow}
+            activeOpacity={0.8}
           >
-            <Text style={styles.filmTitle} numberOfLines={1}>
-              {item.film_title}
+            <Text numberOfLines={1} style={styles.filmTitle}>
+              {item.film_title} <Text style={styles.filmYear}>({item.release_year})</Text>
             </Text>
-            <Text style={styles.filmYear}>({item.release_year})</Text>
-          </Pressable>
+          </TouchableOpacity>
 
-          {/* Director & Poster thumbnail */}
-          <View style={styles.trailerThumbnailRow} pointerEvents="box-none">
-            {item.poster_url ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Open film details"
-                onPress={handleOpenFilmDetail}
-              >
-                <Image
-                  source={{ uri: item.poster_url }}
-                  style={styles.posterThumbnail}
-                  contentFit="cover"
-                />
-              </Pressable>
-            ) : null}
+          {/* Film Director */}
+          <Text numberOfLines={1} style={styles.filmDirector}>
+            Dir. {item.director}
+          </Text>
 
-            <Pressable
+          {/* Film Description / Synopsis (Expandable) */}
+          {item.synopsis ? (
+            <TouchableOpacity
               accessibilityRole="button"
-              accessibilityLabel="View film"
-              onPress={handleOpenFilmDetail}
-              style={{ flex: 1, justifyContent: 'center' }}
+              accessibilityLabel={isExpandedSynopsis ? 'Collapse synopsis' : 'Expand synopsis'}
+              onPress={() => setIsExpandedSynopsis((prev) => !prev)}
+              activeOpacity={0.9}
             >
-              <Text style={styles.directorText} numberOfLines={1}>
-                Dir. {item.director}
+              <Text
+                numberOfLines={isExpandedSynopsis ? undefined : 2}
+                style={styles.filmDescription}
+              >
+                {item.synopsis}
               </Text>
-              <Text style={styles.trailerItemTitle} numberOfLines={1}>
-                {item.title}
-              </Text>
-            </Pressable>
-          </View>
+            </TouchableOpacity>
+          ) : null}
 
-          {/* Genre Chips */}
-          {item.genres && item.genres.length > 0 && (
-            <View style={styles.genreChipsRow} pointerEvents="box-none">
-              {item.genres.slice(0, 3).map((genre, idx) => (
-                <Chip
-                  key={idx}
-                  label={genre}
-                  variant="outlined"
-                  style={styles.genreChip}
-                />
+          {/* Cultural Tags / Genre Pills */}
+          {culturalTags.length > 0 && (
+            <View style={styles.tagRow} pointerEvents="box-none">
+              {culturalTags.slice(0, 3).map((tag, idx) => (
+                <View key={`${tag}-${idx}`} style={styles.tagPill}>
+                  <Text style={styles.tagText}>{tag}</Text>
+                </View>
               ))}
             </View>
           )}
 
-          {/* Synopsis (expandable) */}
-          {item.synopsis && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={isExpandedSynopsis ? 'Collapse synopsis' : 'Expand synopsis'}
-              onPress={() => setIsExpandedSynopsis((prev) => !prev)}
-              style={styles.synopsisContainer}
-            >
-              <Text
-                style={styles.synopsisText}
-                numberOfLines={isExpandedSynopsis ? undefined : 2}
-              >
-                {item.synopsis}
-              </Text>
-              {!isExpandedSynopsis && (
-                <Text style={styles.synopsisMore}>more</Text>
-              )}
-            </Pressable>
-          )}
-
-          {/* Rights & Licensing Note */}
+          {/* Rights Note */}
           {item.rights_note && (
             <View style={styles.rightsNoteRow} pointerEvents="box-none">
               <Ionicons name="shield-checkmark-outline" size={11} color="#8A8A8A" style={{ marginRight: 4 }} />
@@ -486,28 +532,22 @@ export function FeedVideoItem({
           )}
         </View>
 
-        {/* Right Side: Action Rail (Monochrome, min 44px tap targets) */}
-        <View style={styles.actionRail} pointerEvents="box-none">
+        {/* Right Side: Action Rail (Flush Bottom-Right) */}
+        <View pointerEvents="auto" style={styles.bottomRightRail}>
           {/* Like Button */}
-          <Pressable
+          <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel={isLiked ? 'Unlike trailer' : 'Like trailer'}
             onPress={handleToggleLike}
-            style={styles.actionButton}
-            hitSlop={8}
+            style={styles.railButton}
+            activeOpacity={0.7}
           >
-            <View style={[styles.actionIconCircle, isLiked && styles.actionIconCircleActive]}>
-              <Ionicons
-                name={isLiked ? 'heart' : 'heart-outline'}
-                size={24}
-                color={isLiked ? '#000000' : '#FFFFFF'}
-              />
-            </View>
-            <Text style={styles.actionLabel}>{likeCount}</Text>
-          </Pressable>
+            <Heart color="#FFFFFF" fill={isLiked ? '#FFFFFF' : 'transparent'} size={28} />
+            <Text style={styles.railText}>{formatCount(likeCount)}</Text>
+          </TouchableOpacity>
 
-          {/* Comments Button */}
-          <Pressable
+          {/* Comment Button */}
+          <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel="Open discussion comments"
             onPress={() => {
@@ -515,83 +555,58 @@ export function FeedVideoItem({
               recordPromotedTap();
               onOpenComments(item);
             }}
-            style={styles.actionButton}
-            hitSlop={8}
+            style={styles.railButton}
+            activeOpacity={0.7}
           >
-            <View style={styles.actionIconCircle}>
-              <Ionicons name="chatbubble-outline" size={22} color="#FFFFFF" />
-            </View>
-            <Text style={styles.actionLabel}>{item.comment_count}</Text>
-          </Pressable>
+            <MessageCircle color="#FFFFFF" size={28} />
+            <Text style={styles.railText}>
+              {formatCount((item as any).comments_count ?? item.comment_count)}
+            </Text>
+          </TouchableOpacity>
 
-          {/* Watchlist Button */}
-          <Pressable
+          {/* Watchlist / Save Button */}
+          <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel={isInWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
             onPress={handleToggleWatchlist}
-            style={styles.actionButton}
-            hitSlop={8}
+            style={styles.railButton}
+            activeOpacity={0.7}
           >
-            <View style={[styles.actionIconCircle, isInWatchlist && styles.actionIconCircleActive]}>
-              <Ionicons
-                name={isInWatchlist ? 'bookmark' : 'bookmark-outline'}
-                size={22}
-                color={isInWatchlist ? '#000000' : '#FFFFFF'}
-              />
-            </View>
-            <Text style={styles.actionLabel}>
-              {isInWatchlist ? 'Added' : 'Watch'}
-            </Text>
-          </Pressable>
+            <Bookmark color="#FFFFFF" fill={isInWatchlist ? '#FFFFFF' : 'transparent'} size={28} />
+            <Text style={styles.railText}>Watch</Text>
+          </TouchableOpacity>
 
           {/* Share Button */}
-          <Pressable
+          <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel="Share trailer"
             onPress={handleShare}
-            style={styles.actionButton}
-            hitSlop={8}
+            style={styles.railButton}
+            activeOpacity={0.7}
           >
-            <View style={styles.actionIconCircle}>
-              <Ionicons name="share-social-outline" size={22} color="#FFFFFF" />
-            </View>
-            <Text style={styles.actionLabel}>Share</Text>
-          </Pressable>
+            <Share2 color="#FFFFFF" size={28} />
+            <Text style={styles.railText}>Share</Text>
+          </TouchableOpacity>
 
-          {/* Report / Moderation Button */}
-          <Pressable
+          {/* Film Disc / View Details Button */}
+          <TouchableOpacity
             accessibilityRole="button"
-            accessibilityLabel="Report trailer"
-            onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
-              setIsReportModalVisible(true);
-            }}
-            style={styles.actionButton}
-            hitSlop={8}
+            accessibilityLabel="View film details and soundtrack disc"
+            onPress={handleOpenFilmDetail}
+            style={styles.railButton}
+            activeOpacity={0.7}
           >
-            <View style={styles.actionIconCircle}>
-              <Ionicons name="ellipsis-horizontal" size={20} color="#FFFFFF" />
-            </View>
-          </Pressable>
-
-          {/* Rotating Vinyl Poster Disc */}
-          {item.poster_url && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="View film disc"
-              onPress={handleOpenFilmDetail}
-              style={styles.discContainer}
-            >
-              <Animated.View style={[styles.discOuter, animatedDiscStyle]}>
-                <Image
-                  source={{ uri: item.poster_url }}
-                  style={styles.discImage}
-                  contentFit="cover"
-                />
-                <View style={styles.discHole} />
-              </Animated.View>
-            </Pressable>
-          )}
+            <Animated.View style={animatedDiscStyle}>
+              {item.poster_url ? (
+                <View style={styles.discOuter}>
+                  <Image source={{ uri: item.poster_url }} style={styles.discImage} contentFit="cover" />
+                  <View style={styles.discHole} />
+                </View>
+              ) : (
+                <Disc color="#FFFFFF" size={28} />
+              )}
+            </Animated.View>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -608,9 +623,10 @@ export function FeedVideoItem({
 }
 
 const styles = StyleSheet.create({
-  container: {
+  fullScreenContainer: {
     backgroundColor: '#000000',
     overflow: 'hidden',
+    position: 'relative',
   },
   webViewContainer: {
     flex: 1,
@@ -679,8 +695,23 @@ const styles = StyleSheet.create({
   },
   promotedSlotTag: {
     position: 'absolute',
-    left: spacing.lg,
-    zIndex: 20,
+    left: 16,
+    zIndex: 25,
+  },
+  topRightControls: {
+    position: 'absolute',
+    right: 16,
+    zIndex: 25,
+  },
+  speakerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bottomScrimWrap: {
     position: 'absolute',
@@ -690,7 +721,7 @@ const styles = StyleSheet.create({
     height: 420,
     zIndex: 5,
   },
-  overlayContainer: {
+  bottomOverlayContainer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -698,115 +729,82 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: 16,
+    paddingBottom: 16, // Sits directly on top of the tab bar
     zIndex: 10,
   },
-  detailsCol: {
+  bottomLeftDetails: {
     flex: 1,
-    marginRight: spacing.md,
+    marginRight: 12,
+    gap: 6,
   },
-  posterAccountRow: {
+  badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 2,
   },
-  accountIconBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#1F1F1F',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.xs,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  posterAccountName: {
-    ...typography.caption,
-    color: '#FFFFFF',
+  festivalBadge: {
+    fontSize: 11,
     fontWeight: '700',
-    marginRight: 6,
-    maxWidth: 150,
+    color: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+    maxWidth: 160,
   },
-  typeBadge: {
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    marginLeft: 4,
-  },
-  typeBadgeText: {
+  officialBadge: {
     fontSize: 9,
     fontWeight: '700',
     color: '#D4D4D4',
-    textTransform: 'uppercase',
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: spacing.xs,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    overflow: 'hidden',
+    letterSpacing: 0.5,
   },
   filmTitle: {
-    ...typography.titleLarge,
-    color: '#FFFFFF',
+    fontSize: 17,
     fontWeight: '800',
-    letterSpacing: -0.5,
-    marginRight: spacing.xs,
-    flexShrink: 1,
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
   filmYear: {
-    ...typography.caption,
-    color: '#8A8A8A',
+    fontSize: 14,
     fontWeight: '600',
+    color: '#8A8A8A',
   },
-  trailerThumbnailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  posterThumbnail: {
-    width: 36,
-    height: 52,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    marginRight: spacing.sm,
-  },
-  directorText: {
-    ...typography.caption,
+  filmDirector: {
+    fontSize: 13,
+    fontWeight: '600',
     color: '#D4D4D4',
-    fontWeight: '600',
   },
-  trailerItemTitle: {
-    ...typography.caption,
-    color: '#8A8A8A',
+  filmDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#D4D4D4',
   },
-  genreChipsRow: {
+  tagRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-    marginBottom: spacing.xs,
+    marginTop: 2,
   },
-  genreChip: {
-    height: 22,
+  tagPill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
   },
-  synopsisContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 4,
-  },
-  synopsisText: {
-    ...typography.caption,
-    color: '#D4D4D4',
-    lineHeight: 16,
-  },
-  synopsisMore: {
-    ...typography.caption,
+  tagText: {
+    fontSize: 11,
+    fontWeight: '600',
     color: '#FFFFFF',
-    fontWeight: '700',
-    marginLeft: 4,
   },
   rightsNoteRow: {
     flexDirection: 'row',
@@ -817,46 +815,28 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#8A8A8A',
   },
-  actionRail: {
+  bottomRightRail: {
+    width: 50,
     alignItems: 'center',
     gap: 16,
+    paddingBottom: 4,
   },
-  actionButton: {
+  railButton: {
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 4,
     minWidth: 44,
     minHeight: 44,
-  },
-  actionIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
   },
-  actionIconCircleActive: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#FFFFFF',
-  },
-  actionLabel: {
-    ...typography.caption,
+  railText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
   },
-  discContainer: {
-    marginTop: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   discOuter: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#141414',
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.4)',
@@ -865,17 +845,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   discImage: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
   },
   discHole: {
     position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: '#000000',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
+    borderColor: 'rgba(255, 255, 255, 0.6)',
   },
 });

@@ -55,11 +55,11 @@ export function resolveVimeoId(urlOrId?: string | null): string {
 }
 
 /**
- * Generates the clean Vimeo background embed URL for in-app autoplay
+ * Generates the clean Vimeo embed URL for in-app autoplay with audio support
  */
-export function getVimeoEmbedUrl(vimeoId: string): string {
+export function getVimeoEmbedUrl(vimeoId: string, isMuted: boolean = true): string {
   const cleanId = extractVimeoId(vimeoId) || DEFAULT_VIMEO_FALLBACK_ID;
-  return `https://player.vimeo.com/video/${cleanId}?background=1&autoplay=1&loop=1&byline=0&title=0&portrait=0&muted=1&playsinline=1&transparent=0&dnt=1`;
+  return `https://player.vimeo.com/video/${cleanId}?autoplay=1&loop=1&byline=0&title=0&portrait=0&muted=${isMuted ? '1' : '0'}&playsinline=1&transparent=0&dnt=1`;
 }
 
 /**
