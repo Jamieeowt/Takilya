@@ -699,6 +699,21 @@ export async function incrementTrailerView(trailerId: string): Promise<void> {
 }
 
 /**
+ * Log playback failure to failed_trailers table (Prompt Step 5)
+ */
+export async function logFailedTrailer(trailerId: string, errorMessage: string): Promise<void> {
+  try {
+    await supabase.from('failed_trailers').insert({
+      trailer_id: trailerId,
+      error: errorMessage,
+      created_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.debug('[Takilya Feed] Recorded local failed trailer log:', trailerId, errorMessage);
+  }
+}
+
+/**
  * Toggle Watchlist for a film
  */
 export async function toggleFilmWatchlist(

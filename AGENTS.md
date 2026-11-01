@@ -8,8 +8,11 @@ and mainstream films get equal organic visibility.
 React Native Expo (TypeScript, strict), Expo Router for navigation
 Supabase: PostgreSQL, Auth, Storage, Row Level Security
 TanStack Query for data fetching, Zustand for light client state
-Videos are YouTube embeds only (react-native-youtube-iframe). Never host or
-upload video files.
+Videos are TikTok embeds from official uploads only, loaded through the
+official TikTok embed player in react-native-webview. Only one WebView is
+mounted at a time (the visible feed item); other items show a thumbnail.
+Always provide a thumbnail plus a "Watch on TikTok" fallback if playback
+fails. Never host or upload video files.
 ## App structure (bottom tabs)
 1. Feed: vertical, full-screen, swipe-up video player (trailers and official
 clips)
@@ -68,6 +71,22 @@ outline.
 Never hard-code secrets. Read EXPO_PUBLIC_SUPABASE_URL and
 EXPO_PUBLIC_SUPABASE_ANON_KEY from env.
 Enable Row Level Security on every table; write policies for each.
+Policies grant read access to authenticated users only, never anon.
 ## Out of scope
 Payments, ticketing, hosting video, TV series, real FDCP integration (use
 seed data standing in for FDCP records).
+## Launch flow and auth gate
+Cold start: native splash, then an animated splash while the session
+restores. No session: Welcome screen (Create account or Sign in); nothing
+else is reachable. Session: the 4 tabs.
+No guest mode. Every tab, film, trailer and profile requires a signed-in
+user. Enforce it in routing (protected routes) and in Row Level Security
+(no anon access to app data).
+## Safe areas and bottom navigation
+Wrap the app in SafeAreaProvider. Never hard-code notch or system-bar
+offsets. Tab bar height = 56 + bottomInset, where bottomInset =
+Math.max(insets.bottom, 12), so it never overlaps the iOS home indicator,
+Android gesture bar or 3-button navigation. Scroll screens add the tab bar
+height as bottom padding. Floating controls, sheets and toasts sit above
+the tab bar and add insets.bottom. Android uses edge-to-edge with
+transparent system bars.

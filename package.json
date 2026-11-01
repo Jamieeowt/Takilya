@@ -53,6 +53,7 @@
   },
   "scripts": {
     "test": "jest --watchAll=false",
+    "seed:cinemalaya": "tsx scripts/seed-cinemalaya.ts",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",

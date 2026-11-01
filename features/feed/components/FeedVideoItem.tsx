@@ -29,8 +29,10 @@ import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { PromotedPill } from '@/components/ui/PromotedPill';
 import { Chip } from '@/components/ui/Chip';
 import { extractTikTokId, getTikTokVideoUrl } from '@/lib/tiktok';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FeedTrailerItem } from '../types';
 import { useIncrementTrailerView, useToggleWatchlist } from '../useFeed';
+import { logFailedTrailer } from '../api';
 import { useAuth } from '@/features/auth';
 import { useRecordPromotedEvent } from '@/features/promoted';
 import { ReportModal } from '@/components/moderation';
@@ -61,6 +63,7 @@ export function FeedVideoItem({
   const router = useRouter();
   const isFocused = useIsFocused();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
 
   // Player state: starts muted for autoplay compliance, player ready state, playing state
   const [isReady, setReady] = useState(false);
@@ -77,39 +80,12 @@ export function FeedVideoItem({
     return fallback || '7652287895692266769';
   }, [rawId]);
 
-  // Official TikTok embed iframe HTML
-  const embedHtml = useMemo(() => {
-    return `<!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body {
-        width: 100%;
-        height: 100%;
-        background-color: #000000;
-        overflow: hidden;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      iframe {
-        width: 100% !important;
-        height: 100% !important;
-        border: none !important;
-      }
-    </style>
-  </head>
-  <body>
-    <iframe
-      src="https://www.tiktok.com/embed/v2/${cleanTikTokId}?lang=en-US"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      allowfullscreen>
-    </iframe>
-  </body>
-</html>`;
-  }, [cleanTikTokId]);
+  // Step 3: Direct Official TikTok Embed Player URL
+  const playerUrl = useMemo(
+    () =>
+      `https://www.tiktok.com/player/v1/${cleanTikTokId}?autoplay=1&loop=1&controls=0&music_info=0&description=0&rel=0&native_context_menu=0&closed_captions=0`,
+    [cleanTikTokId]
+  );
 
   // Reset player error and ready state when the video changes
   useEffect(() => {
@@ -180,6 +156,23 @@ export function FeedVideoItem({
 
   // Active viewability: true when screen is focused, card is visible, and playback is active
   const isViewable = isFocused && isVisible && (propPlay !== undefined ? propPlay : true) && isPlaying;
+
+  // Step 5: 6-second fallback timeout
+  useEffect(() => {
+    let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
+    if (isViewable && !isReady && !hasPlayerError) {
+      timeoutTimer = setTimeout(() => {
+        if (!isReady) {
+          console.warn(`[TikTok Player Timeout (6s) for ${cleanTikTokId}]: Did not load in 6s. Triggering fallback.`);
+          setHasPlayerError(true);
+          void logFailedTrailer(item.id, `Timeout after 6s for TikTok ID ${cleanTikTokId}`);
+        }
+      }, 6000);
+    }
+    return () => {
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+    };
+  }, [isViewable, isReady, hasPlayerError, cleanTikTokId, item.id]);
 
   // Toggle mute handler (keeps mute=true by default for autoplay compliance)
   const handleToggleMute = () => {
@@ -400,9 +393,11 @@ export function FeedVideoItem({
               />
             )}
             <View style={styles.errorCard}>
-              <Ionicons name="alert-circle-outline" size={40} color="#FFFFFF" />
-              <Text style={styles.errorTitle}>Video unavailable</Text>
-              <Text style={styles.errorSub}>The official clip could not be loaded.</Text>
+              <Ionicons name="film-outline" size={38} color="#FFFFFF" />
+              <Text style={styles.errorTitle}>Watch on TikTok</Text>
+              <Text style={styles.errorSub}>
+                Official clip playback is available directly on TikTok.
+              </Text>
               <View style={styles.errorActionRow}>
                 <Pressable
                   accessibilityRole="button"
@@ -418,17 +413,17 @@ export function FeedVideoItem({
                 {cleanTikTokId ? (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Open trailer on TikTok"
+                    accessibilityLabel="Watch on TikTok"
                     onPress={() =>
                       void Linking.openURL(`https://www.tiktok.com/video/${cleanTikTokId}`)
                     }
-                    style={styles.openPlatformBtn}>
+                    style={styles.watchOnTikTokBtn}>
                     <Ionicons
                       name="logo-tiktok"
                       size={16}
-                      color="#FFFFFF"
+                      color="#000000"
                     />
-                    <Text style={styles.openPlatformText}>TikTok</Text>
+                    <Text style={styles.watchOnTikTokText}>Watch on TikTok</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -436,38 +431,91 @@ export function FeedVideoItem({
           </View>
         ) : (
           <View style={styles.nativePlayerWrapper}>
-            {isViewable && (
+            {/* Step 4: Mount WebView ONLY for currently visible item */}
+            {isViewable ? (
               <WebView
-                source={{
-                  html: embedHtml,
-                  baseUrl: 'https://www.tiktok.com',
-                }}
+                source={{ uri: playerUrl }}
+                originWhitelist={['*']}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+                allowsInlineMediaPlayback={true}
+                mediaPlaybackRequiresUserAction={false}
+                allowsFullscreenVideo={false}
+                thirdPartyCookiesEnabled={true}
+                sharedCookiesEnabled={true}
+                setSupportMultipleWindows={false}
+                androidLayerType="hardware"
+                userAgent={
+                  Platform.OS === 'ios'
+                    ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Mobile/15E148 Safari/604.1'
+                    : 'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.127 Mobile Safari/537.36'
+                }
                 style={{
                   flex: 1,
                   backgroundColor: '#000000',
                   opacity: 0.99,
                 }}
-                allowsInlineMediaPlayback={true}
-                mediaPlaybackRequiresUserAction={false}
-                javaScriptEnabled={true}
-                domStorageEnabled={true}
-                androidLayerType="hardware"
                 scrollEnabled={false}
                 bounces={false}
-                onLoadStart={() => setReady(false)}
-                onLoadEnd={() => {
+                onShouldStartLoadWithRequest={(request) => {
+                  console.log(`[TikTok WebView onShouldStartLoadWithRequest ${cleanTikTokId}]:`, request.url);
+                  if (
+                    request.url.startsWith('about:') ||
+                    request.url.startsWith('data:') ||
+                    request.url.startsWith('blob:')
+                  ) {
+                    return true;
+                  }
+                  try {
+                    const parsed = new URL(request.url);
+                    const host = parsed.hostname.toLowerCase();
+                    const isAllowed =
+                      host === 'tiktok.com' ||
+                      host.endsWith('.tiktok.com') ||
+                      host === 'tiktokcdn.com' ||
+                      host.endsWith('.tiktokcdn.com');
+                    return isAllowed;
+                  } catch {
+                    return false;
+                  }
+                }}
+                onLoadStart={(e) => {
+                  console.log(`[TikTok WebView onLoadStart ${cleanTikTokId}]:`, e.nativeEvent.url);
+                  setReady(false);
+                }}
+                onLoadEnd={(e) => {
+                  console.log(`[TikTok WebView onLoadEnd ${cleanTikTokId}]:`, e.nativeEvent.url, e.nativeEvent.title);
                   setReady(true);
                   setHasPlayerError(false);
                 }}
-                onError={(syntheticEvent: any) => {
-                  console.warn(`[TikTok Player Error for ${cleanTikTokId}]:`, syntheticEvent?.nativeEvent);
+                onError={(e: any) => {
+                  console.error(`[TikTok WebView onError ${cleanTikTokId}]:`, e?.nativeEvent);
                   setHasPlayerError(true);
+                  void logFailedTrailer(item.id, `WebView onError: ${JSON.stringify(e?.nativeEvent || {})}`);
+                }}
+                onHttpError={(e: any) => {
+                  console.error(`[TikTok WebView onHttpError ${cleanTikTokId}]:`, e?.nativeEvent);
+                  if (e?.nativeEvent?.statusCode >= 400) {
+                    setHasPlayerError(true);
+                    void logFailedTrailer(item.id, `WebView onHttpError status: ${e?.nativeEvent?.statusCode}`);
+                  }
+                }}
+                onMessage={(event) => {
+                  console.log(`[TikTok WebView onMessage ${cleanTikTokId}]:`, event.nativeEvent.data);
                 }}
               />
+            ) : (
+              item.poster_url && (
+                <Image
+                  source={{ uri: item.poster_url }}
+                  style={styles.fullFill}
+                  resizeMode="cover"
+                />
+              )
             )}
 
             {/* Loading Shimmer Skeleton while WebView is loading */}
-            {!isReady && !hasPlayerError && (
+            {isViewable && !isReady && !hasPlayerError && (
               <View style={styles.skeletonContainer} pointerEvents="none">
                 {item.poster_url && (
                   <Image
@@ -548,7 +596,12 @@ export function FeedVideoItem({
       </View>
 
       {/* 6. Bottom Content & Overlay (pointerEvents="box-none") */}
-      <View style={styles.overlayContainer} pointerEvents="box-none">
+      <View
+        style={[
+          styles.overlayContainer,
+          { paddingBottom: Math.max(insets.bottom, 12) + spacing.md },
+        ]}
+        pointerEvents="box-none">
         {/* Left Side: Metadata Column */}
         <View style={styles.detailsCol} pointerEvents="box-none">
           {/* Poster Account Row */}
@@ -1197,14 +1250,31 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   retryButton: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.lg,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderWidth: 1,
+    backgroundColor: '#141414',
+    paddingHorizontal: spacing.md,
     minHeight: 44,
     borderRadius: radius.xs,
     justifyContent: 'center',
     alignItems: 'center',
   },
   retryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  watchOnTikTokBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing.md,
+    minHeight: 44,
+    borderRadius: radius.xs,
+    justifyContent: 'center',
+  },
+  watchOnTikTokText: {
     color: '#000000',
     fontWeight: '800',
     fontSize: 13,
@@ -1239,22 +1309,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  openPlatformBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    borderWidth: 1,
-    backgroundColor: '#1F1F1F',
-    paddingHorizontal: spacing.md,
-    minHeight: 44,
-    borderRadius: radius.xs,
-    justifyContent: 'center',
-  },
-  openPlatformText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 13,
   },
 });

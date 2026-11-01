@@ -72,7 +72,7 @@ export default function FeedScreen() {
   ).current;
 
   const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 60,
+    itemVisiblePercentThreshold: 80,
   }).current;
 
   // Navigate to Film Detail Screen
