@@ -1,14 +1,20 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Share } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Edit3, Share2, Film, Star, Bookmark, ListFilter } from 'lucide-react-native';
+import { Edit3, Share2, Film, Star, Bookmark, ListFilter, Camera } from 'lucide-react-native';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+
 import { UserProfile } from '@/features/account/types';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { FollowButton } from '@/components/social/FollowButton';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { radius, spacing, typography } from '@/lib/theme';
+
+export const DEFAULT_COVER_URL =
+  'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1200&q=80';
 
 interface ProfileHeaderProps {
   profile: UserProfile;
@@ -40,7 +46,10 @@ export function ProfileHeader({
   };
 
   const isCritic = profile.role === 'critic';
-  const isVerified = profile.role === 'verified_official' || profile.role === 'critic' || profile.role === 'admin';
+  const isVerified =
+    profile.role === 'verified_official' ||
+    profile.role === 'critic' ||
+    profile.role === 'admin';
 
   const totalFollowing =
     (profile.following_counts?.festivals || 0) +
@@ -50,15 +59,85 @@ export function ProfileHeader({
 
   return (
     <View style={styles.container}>
-      {/* User Identity & Avatar */}
-      <View style={styles.identityRow}>
-        <Avatar
-          url={profile.avatar_url}
-          name={profile.display_name}
-          size={76}
-          isVerified={isVerified}
+      {/* 1. Cover Photo Banner (Hero Header) */}
+      <View style={styles.coverBannerContainer}>
+        <Image
+          source={{ uri: profile.cover_url || DEFAULT_COVER_URL }}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
         />
+        {/* Bottom Fade Gradient into background black (#000000) */}
+        <Svg width="100%" height={150} style={StyleSheet.absoluteFill}>
+          <Defs>
+            <LinearGradient id="coverGradient" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#000000" stopOpacity="0" />
+              <Stop offset="0.45" stopColor="#000000" stopOpacity="0.25" />
+              <Stop offset="0.8" stopColor="#000000" stopOpacity="0.75" />
+              <Stop offset="1" stopColor="#000000" stopOpacity="1" />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height={150} fill="url(#coverGradient)" />
+        </Svg>
 
+        {/* Edit Cover Badge in corner (for own profile) */}
+        {isOwnProfile && onEditPress && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Edit cover photo"
+            onPress={onEditPress}
+            style={styles.editCoverBadge}
+            hitSlop={8}>
+            <Camera size={14} color="#FFFFFF" />
+            <Text style={styles.editCoverText}>Edit Cover</Text>
+          </Pressable>
+        )}
+      </View>
+
+      {/* 2. Profile Avatar Overlap & Action Row */}
+      <View style={styles.contentWrapper}>
+        <View style={styles.avatarRow}>
+          {/* Overlapping Avatar with 3px solid black border boundary cutout */}
+          <View style={styles.avatarBorderWrapper}>
+            <Avatar
+              url={profile.avatar_url}
+              name={profile.display_name}
+              size={84}
+              isVerified={isVerified}
+            />
+          </View>
+
+          {/* Action Buttons Row beside Avatar (Right) */}
+          <View style={styles.headerRightActions}>
+            {isOwnProfile ? (
+              <Button
+                label="Edit Profile"
+                variant="secondary"
+                onPress={onEditPress || (() => {})}
+                icon={<Edit3 size={15} color="#FFFFFF" />}
+                style={styles.editBtn}
+              />
+            ) : (
+              <FollowButton
+                targetType="user"
+                targetId={profile.id}
+                targetName={profile.display_name}
+                size="md"
+                style={styles.followBtn}
+              />
+            )}
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Share profile"
+              onPress={handleShare}
+              style={styles.shareIconButton}
+              hitSlop={8}>
+              <Share2 size={18} color="#FFFFFF" />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* 3. User Identity & Bio Information */}
         <View style={styles.identityInfo}>
           <View style={styles.nameRow}>
             <Text style={styles.displayName} numberOfLines={1}>
@@ -117,104 +196,75 @@ export function ProfileHeader({
             </Text>
           ) : null}
         </View>
-      </View>
 
-      {/* Stats Bar (Tappable to jump to tab) */}
-      <View style={styles.statsBar}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`View ${profile.films_logged_count} logged films`}
-          onPress={() => {
-            void Haptics.selectionAsync();
-            onSelectTab(0); // Watched / Diary
-          }}
-          style={[styles.statItem, activeTab === 0 && styles.statItemActive]}>
-          <Film size={16} color={activeTab === 0 ? '#FFFFFF' : '#8A8A8A'} />
-          <Text style={[styles.statValue, activeTab === 0 && styles.statValueActive]}>
-            {profile.films_logged_count}
-          </Text>
-          <Text style={styles.statLabel}>Logged</Text>
-        </Pressable>
+        {/* 4. Stats Bar (Logged, Reviews, Watchlist, Lists) */}
+        <View style={styles.statsBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`View ${profile.films_logged_count} logged films`}
+            onPress={() => {
+              void Haptics.selectionAsync();
+              onSelectTab(0); // Watched / Diary
+            }}
+            style={[styles.statItem, activeTab === 0 && styles.statItemActive]}>
+            <Film size={16} color={activeTab === 0 ? '#FFFFFF' : '#8A8A8A'} />
+            <Text style={[styles.statValue, activeTab === 0 && styles.statValueActive]}>
+              {profile.films_logged_count}
+            </Text>
+            <Text style={styles.statLabel}>Logged</Text>
+          </Pressable>
 
-        <View style={styles.statDivider} />
+          <View style={styles.statDivider} />
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`View ${profile.reviews_count} reviews`}
-          onPress={() => {
-            void Haptics.selectionAsync();
-            onSelectTab(3); // Reviews
-          }}
-          style={[styles.statItem, activeTab === 3 && styles.statItemActive]}>
-          <Star size={16} color={activeTab === 3 ? '#FFFFFF' : '#8A8A8A'} />
-          <Text style={[styles.statValue, activeTab === 3 && styles.statValueActive]}>
-            {profile.reviews_count}
-          </Text>
-          <Text style={styles.statLabel}>Reviews</Text>
-        </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`View ${profile.reviews_count} reviews`}
+            onPress={() => {
+              void Haptics.selectionAsync();
+              onSelectTab(3); // Reviews
+            }}
+            style={[styles.statItem, activeTab === 3 && styles.statItemActive]}>
+            <Star size={16} color={activeTab === 3 ? '#FFFFFF' : '#8A8A8A'} />
+            <Text style={[styles.statValue, activeTab === 3 && styles.statValueActive]}>
+              {profile.reviews_count}
+            </Text>
+            <Text style={styles.statLabel}>Reviews</Text>
+          </Pressable>
 
-        <View style={styles.statDivider} />
+          <View style={styles.statDivider} />
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`View ${profile.watchlist_count} films in watchlist`}
-          onPress={() => {
-            void Haptics.selectionAsync();
-            onSelectTab(1); // Watchlist
-          }}
-          style={[styles.statItem, activeTab === 1 && styles.statItemActive]}>
-          <Bookmark size={16} color={activeTab === 1 ? '#FFFFFF' : '#8A8A8A'} />
-          <Text style={[styles.statValue, activeTab === 1 && styles.statValueActive]}>
-            {profile.watchlist_count}
-          </Text>
-          <Text style={styles.statLabel}>Watchlist</Text>
-        </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`View ${profile.watchlist_count} films in watchlist`}
+            onPress={() => {
+              void Haptics.selectionAsync();
+              onSelectTab(1); // Watchlist
+            }}
+            style={[styles.statItem, activeTab === 1 && styles.statItemActive]}>
+            <Bookmark size={16} color={activeTab === 1 ? '#FFFFFF' : '#8A8A8A'} />
+            <Text style={[styles.statValue, activeTab === 1 && styles.statValueActive]}>
+              {profile.watchlist_count}
+            </Text>
+            <Text style={styles.statLabel}>Watchlist</Text>
+          </Pressable>
 
-        <View style={styles.statDivider} />
+          <View style={styles.statDivider} />
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`View ${profile.lists_count} custom lists`}
-          onPress={() => {
-            void Haptics.selectionAsync();
-            onSelectTab(2); // Lists
-          }}
-          style={[styles.statItem, activeTab === 2 && styles.statItemActive]}>
-          <ListFilter size={16} color={activeTab === 2 ? '#FFFFFF' : '#8A8A8A'} />
-          <Text style={[styles.statValue, activeTab === 2 && styles.statValueActive]}>
-            {profile.lists_count}
-          </Text>
-          <Text style={styles.statLabel}>Lists</Text>
-        </Pressable>
-      </View>
-
-      {/* Quick Action Buttons */}
-      <View style={styles.actionsRow}>
-        {isOwnProfile ? (
-          <Button
-            label="Edit Profile"
-            variant="secondary"
-            onPress={onEditPress || (() => {})}
-            icon={<Edit3 size={15} color="#FFFFFF" />}
-            style={styles.editBtn}
-          />
-        ) : (
-          <FollowButton
-            targetType="user"
-            targetId={profile.id}
-            targetName={profile.display_name}
-            size="md"
-            style={styles.followBtn}
-          />
-        )}
-
-        <Button
-          label="Share Profile"
-          variant="ghost"
-          onPress={handleShare}
-          icon={<Share2 size={15} color="#FFFFFF" />}
-          style={styles.shareBtn}
-        />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`View ${profile.lists_count} custom lists`}
+            onPress={() => {
+              void Haptics.selectionAsync();
+              onSelectTab(2); // Lists
+            }}
+            style={[styles.statItem, activeTab === 2 && styles.statItemActive]}>
+            <ListFilter size={16} color={activeTab === 2 ? '#FFFFFF' : '#8A8A8A'} />
+            <Text style={[styles.statValue, activeTab === 2 && styles.statValueActive]}>
+              {profile.lists_count}
+            </Text>
+            <Text style={styles.statLabel}>Lists</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -222,18 +272,81 @@ export function ProfileHeader({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
     backgroundColor: '#000000',
+    paddingBottom: spacing.sm,
   },
-  identityRow: {
+  coverBannerContainer: {
+    height: 150,
+    width: '100%',
+    backgroundColor: '#0A0A0A',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  editCoverBadge: {
+    position: 'absolute',
+    right: 16,
+    bottom: 12,
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  editCoverText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  contentWrapper: {
+    paddingHorizontal: spacing.md,
+  },
+  avatarRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  avatarBorderWrapper: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 3,
+    borderColor: '#000000',
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -42,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingBottom: 4,
+  },
+  editBtn: {
+    minHeight: 44,
+    paddingHorizontal: 16,
+  },
+  followBtn: {
+    minHeight: 44,
+    paddingHorizontal: 16,
+  },
+  shareIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   identityInfo: {
-    flex: 1,
+    marginTop: 6,
   },
   nameRow: {
     flexDirection: 'row',
@@ -242,10 +355,10 @@ const styles = StyleSheet.create({
   },
   displayName: {
     ...typography.title,
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
   },
   handleRow: {
     flexDirection: 'row',
@@ -258,7 +371,7 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: '#8A8A8A',
     fontWeight: '500',
-    fontSize: 13,
+    fontSize: 14,
   },
   criticPill: {
     paddingHorizontal: 6,
@@ -279,6 +392,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     color: '#D4D4D4',
+    marginTop: 4,
   },
   followStatsRow: {
     flexDirection: 'row',
@@ -350,23 +464,4 @@ const styles = StyleSheet.create({
     height: 28,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
-  actionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  editBtn: {
-    flex: 1,
-    minHeight: 44,
-  },
-  followBtn: {
-    flex: 1,
-    minHeight: 44,
-  },
-  shareBtn: {
-    flex: 1,
-    minHeight: 44,
-  },
 });
-

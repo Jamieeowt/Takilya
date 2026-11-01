@@ -116,6 +116,7 @@ export default function TabLayout() {
         options={{
           title: 'Account',
           tabBarLabel: 'Account',
+          headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'person' : 'person-outline'}

@@ -27,6 +27,7 @@ export interface UserProfile {
   username: string;
   display_name: string;
   avatar_url?: string | null;
+  cover_url?: string | null;
   role: UserRole;
   bio: string;
   followers_count: number;

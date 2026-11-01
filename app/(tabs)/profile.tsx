@@ -7,7 +7,7 @@ import {
   RefreshControl,
   Pressable,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { LogOut, LogIn, Settings } from 'lucide-react-native';
@@ -44,7 +44,6 @@ import {
 
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
-import { GlassHeader } from '@/components/ui/GlassHeader';
 import { NotificationBellButton } from '@/components/notifications';
 import { radius, spacing, typography } from '@/lib/theme';
 
@@ -196,12 +195,12 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top Header */}
-      <GlassHeader
-        title={currentProfile.display_name}
-        right={
-          <View style={styles.headerRightRow}>
-            <NotificationBellButton />
+      {/* 1. Unified Top Navigation Bar */}
+      <SafeAreaView edges={['top']} style={styles.topSafeArea}>
+        <View style={styles.topNavRow}>
+          <Text style={styles.screenTitle}>Account</Text>
+          <View style={styles.navActionsRow}>
+            <NotificationBellButton iconSize={22} color="#FFFFFF" />
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Open Settings"
@@ -211,16 +210,20 @@ export default function ProfileScreen() {
                 } catch {}
                 router.push('/settings' as any);
               }}
-              style={styles.headerActionBtn}>
-              <Settings size={19} color="#FFFFFF" />
+              style={styles.navActionButton}
+              hitSlop={8}>
+              <Settings size={22} color="#FFFFFF" />
             </Pressable>
           </View>
-        }
-      />
+        </View>
+      </SafeAreaView>
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 48 }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: 56 + Math.max(insets.bottom, 12) + 24 },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -357,6 +360,37 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
   },
+  topSafeArea: {
+    backgroundColor: '#000000',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    zIndex: 10,
+  },
+  topNavRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    minHeight: 52,
+  },
+  screenTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+  },
+  navActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  navActionButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   scroll: {
     flex: 1,
   },
@@ -373,17 +407,6 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
-  },
-  headerActionBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerRightRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
   },
   guestBanner: {
     flexDirection: 'row',
