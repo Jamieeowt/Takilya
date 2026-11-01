@@ -87,11 +87,13 @@ export default function FeedScreen() {
   // Render individual vertical feed page
   const renderItem = ({ item, index }: { item: FeedTrailerItem; index: number }) => {
     const isVisible = index === visibleIndex;
+    const shouldPreload = index === visibleIndex + 1;
 
     return (
       <FeedVideoItem
         item={item}
         isVisible={isVisible}
+        shouldPreload={shouldPreload}
         play={isVisible}
         isMuted={isVideoMuted}
         onToggleMute={toggleMute}

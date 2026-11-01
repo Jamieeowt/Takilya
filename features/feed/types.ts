@@ -3,10 +3,15 @@ export type FeedType = 'for_you' | 'latest';
 export interface FeedTrailerItem {
   id: string; // trailer id
   film_id: string;
-  youtube_video_id: string;
+  video_url: string; // Direct https .mp4 or HLS .m3u8 URL
+  vimeo_id?: string | null; // Dedicated Vimeo embed ID
+  poster_url?: string | null;
+  duration_seconds?: number | null;
+  rights_note?: string | null; // Permission or license note
+  youtube_video_id?: string;
   tiktok_video_id?: string | null;
   video_id?: string;
-  video_platform?: 'tiktok' | 'youtube';
+  video_platform?: 'vimeo' | 'native' | 'tiktok' | 'youtube';
   title: string; // trailer / clip title
   type: 'teaser' | 'official' | 'international' | 'clip' | 'bts';
   view_count: number;
@@ -16,7 +21,6 @@ export interface FeedTrailerItem {
   film_title: string;
   release_year: number;
   director: string;
-  poster_url?: string | null;
   genres: string[];
   critic_score?: number | null;
   audience_score?: number | null;

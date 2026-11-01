@@ -23,6 +23,7 @@
     "expo-secure-store": "~58.0.2",
     "expo-splash-screen": "~58.0.12",
     "expo-status-bar": "~58.0.4",
+    "expo-video": "^58.0.13",
     "expo-web-browser": "~58.0.7",
     "hermes-parser": "^0.36.1",
     "lucide-react-native": "^0.475.0",
@@ -53,7 +54,8 @@
   },
   "scripts": {
     "test": "jest --watchAll=false",
-    "seed:cinemalaya": "tsx scripts/seed-cinemalaya.ts",
+    "check:videos": "node --experimental-strip-types scripts/check-video-urls.ts",
+    "seed:cinemalaya": "node --experimental-strip-types scripts/seed-cinemalaya.ts",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",

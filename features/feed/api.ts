@@ -1,8 +1,27 @@
 import { supabase } from '@/lib/supabase';
-import { extractYouTubeId } from '@/lib/youtube';
-import { extractTikTokId } from '@/lib/tiktok';
-import { detectVideoPlatform } from '@/lib/video';
+import { extractVimeoId } from '@/lib/video';
 import { FeedPageResponse, FeedTrailerItem, FeedType } from './types';
+
+export const PUBLIC_TEST_VIDEOS = [
+  {
+    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    duration: 596,
+  },
+  {
+    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    duration: 653,
+  },
+  {
+    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    duration: 15,
+  },
+  {
+    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+    duration: 15,
+  },
+];
+
+const TEST_RIGHTS_NOTE = 'TEST CLIPS - Creative Commons / Public Domain Sample Videos';
 
 /**
  * Curated authentic Philippine cinema trailers & official clips
@@ -12,10 +31,11 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0002-0000-0000-000000000000',
     film_id: 'cccccccc-0003-0000-0000-000000000000',
-    youtube_video_id: '7652287895692266769',
-    tiktok_video_id: '7652287895692266769',
-    video_id: '7652287895692266769',
-    video_platform: 'tiktok',
+    video_url: PUBLIC_TEST_VIDEOS[0].url,
+    vimeo_id: '769367056',
+    duration_seconds: PUBLIC_TEST_VIDEOS[0].duration,
+    rights_note: TEST_RIGHTS_NOTE,
+    video_platform: 'vimeo',
     title: 'Official Sundance US Trailer',
     type: 'official',
     view_count: 38200,
@@ -41,10 +61,11 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0001-0000-0000-000000000000',
     film_id: 'cccccccc-0001-0000-0000-000000000000',
-    youtube_video_id: '7445243271833488648',
-    tiktok_video_id: '7445243271833488648',
-    video_id: '7445243271833488648',
-    video_platform: 'tiktok',
+    video_url: PUBLIC_TEST_VIDEOS[1].url,
+    vimeo_id: '138298816',
+    duration_seconds: PUBLIC_TEST_VIDEOS[1].duration,
+    rights_note: TEST_RIGHTS_NOTE,
+    video_platform: 'vimeo',
     title: 'Heritage 4K Restored Official Trailer',
     type: 'official',
     view_count: 45000,
@@ -70,10 +91,11 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0003-0000-0000-000000000000',
     film_id: 'cccccccc-0004-0000-0000-000000000000',
-    youtube_video_id: '7684804262509006088',
-    tiktok_video_id: '7684804262509006088',
-    video_id: '7684804262509006088',
-    video_platform: 'tiktok',
+    video_url: PUBLIC_TEST_VIDEOS[2].url,
+    vimeo_id: '368470441',
+    duration_seconds: PUBLIC_TEST_VIDEOS[2].duration,
+    rights_note: TEST_RIGHTS_NOTE,
+    video_platform: 'vimeo',
     title: 'Cinemalaya Main Competition Clip',
     type: 'clip',
     view_count: 19800,
@@ -99,10 +121,11 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0004-0000-0000-000000000000',
     film_id: 'cccccccc-0005-0000-0000-000000000000',
-    youtube_video_id: '7608148655559920917',
-    tiktok_video_id: '7608148655559920917',
-    video_id: '7608148655559920917',
-    video_platform: 'tiktok',
+    video_url: PUBLIC_TEST_VIDEOS[3].url,
+    vimeo_id: '769367056',
+    duration_seconds: PUBLIC_TEST_VIDEOS[3].duration,
+    rights_note: TEST_RIGHTS_NOTE,
+    video_platform: 'vimeo',
     title: 'QCinema Photocopied High School Trailer',
     type: 'official',
     view_count: 28500,
@@ -128,10 +151,11 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0005-0000-0000-000000000000',
     film_id: 'cccccccc-0002-0000-0000-000000000000',
-    youtube_video_id: '7445243271833488648',
-    tiktok_video_id: '7445243271833488648',
-    video_id: '7445243271833488648',
-    video_platform: 'tiktok',
+    video_url: PUBLIC_TEST_VIDEOS[0].url,
+    vimeo_id: '138298816',
+    duration_seconds: PUBLIC_TEST_VIDEOS[0].duration,
+    rights_note: TEST_RIGHTS_NOTE,
+    video_platform: 'vimeo',
     title: 'World Cinema Project Restored 4K Teaser',
     type: 'teaser',
     view_count: 32400,
@@ -157,10 +181,11 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0006-0000-0000-000000000000',
     film_id: 'cccccccc-0006-0000-0000-000000000000',
-    youtube_video_id: '7684804262509006088',
-    tiktok_video_id: '7684804262509006088',
-    video_id: '7684804262509006088',
-    video_platform: 'tiktok',
+    video_url: PUBLIC_TEST_VIDEOS[1].url,
+    vimeo_id: '769367056',
+    duration_seconds: PUBLIC_TEST_VIDEOS[1].duration,
+    rights_note: TEST_RIGHTS_NOTE,
+    video_platform: 'vimeo',
     title: 'Official Epic Theatrical Trailer',
     type: 'official',
     view_count: 89000,
@@ -186,10 +211,11 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0007-0000-0000-000000000000',
     film_id: 'cccccccc-0007-0000-0000-000000000000',
-    youtube_video_id: '7652287895692266769',
-    tiktok_video_id: '7652287895692266769',
-    video_id: '7652287895692266769',
-    video_platform: 'tiktok',
+    video_url: PUBLIC_TEST_VIDEOS[2].url,
+    vimeo_id: '769367056',
+    duration_seconds: PUBLIC_TEST_VIDEOS[2].duration,
+    rights_note: TEST_RIGHTS_NOTE,
+    video_platform: 'vimeo',
     title: 'The Young General Official Trailer',
     type: 'official',
     view_count: 64200,
@@ -215,10 +241,11 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0008-0000-0000-000000000000',
     film_id: 'cccccccc-0008-0000-0000-000000000000',
-    youtube_video_id: '7608148655559920917',
-    tiktok_video_id: '7608148655559920917',
-    video_id: '7608148655559920917',
-    video_platform: 'tiktok',
+    video_url: PUBLIC_TEST_VIDEOS[3].url,
+    vimeo_id: '769367056',
+    duration_seconds: PUBLIC_TEST_VIDEOS[3].duration,
+    rights_note: TEST_RIGHTS_NOTE,
+    video_platform: 'vimeo',
     title: 'Cinemalaya Audience Choice Official Trailer',
     type: 'official',
     view_count: 22100,
@@ -244,10 +271,11 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0009-0000-0000-000000000000',
     film_id: 'cccccccc-0009-0000-0000-000000000000',
-    youtube_video_id: '7608148655559920917',
-    tiktok_video_id: '7608148655559920917',
-    video_id: '7608148655559920917',
-    video_platform: 'tiktok',
+    video_url: PUBLIC_TEST_VIDEOS[0].url,
+    vimeo_id: '769367056',
+    duration_seconds: PUBLIC_TEST_VIDEOS[0].duration,
+    rights_note: TEST_RIGHTS_NOTE,
+    video_platform: 'vimeo',
     title: 'Official Well Go USA Action Trailer',
     type: 'official',
     view_count: 54200,
@@ -273,10 +301,11 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0010-0000-0000-000000000000',
     film_id: 'cccccccc-0010-0000-0000-000000000000',
-    youtube_video_id: '7684804262509006088',
-    tiktok_video_id: '7684804262509006088',
-    video_id: '7684804262509006088',
-    video_platform: 'tiktok',
+    video_url: PUBLIC_TEST_VIDEOS[1].url,
+    vimeo_id: '368470441',
+    duration_seconds: PUBLIC_TEST_VIDEOS[1].duration,
+    rights_note: TEST_RIGHTS_NOTE,
+    video_platform: 'vimeo',
     title: 'Cannes Directors Fortnight Official Trailer',
     type: 'official',
     view_count: 72000,
@@ -303,10 +332,11 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '30303030-0001-0000-0000-000000000000',
     film_id: 'cccccccc-0003-0000-0000-000000000000',
-    youtube_video_id: '7652287895692266769',
-    tiktok_video_id: '7652287895692266769',
-    video_id: '7652287895692266769',
-    video_platform: 'tiktok',
+    video_url: PUBLIC_TEST_VIDEOS[2].url,
+    vimeo_id: '769367056',
+    duration_seconds: PUBLIC_TEST_VIDEOS[2].duration,
+    rights_note: TEST_RIGHTS_NOTE,
+    video_platform: 'vimeo',
     title: 'QCinema Autumn Re-Release Special Feature',
     type: 'official',
     view_count: 42100,
@@ -334,10 +364,11 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0012-0000-0000-000000000000',
     film_id: 'cccccccc-0012-0000-0000-000000000000',
-    youtube_video_id: '7445243271833488648',
-    tiktok_video_id: '7445243271833488648',
-    video_id: '7445243271833488648',
-    video_platform: 'tiktok',
+    video_url: PUBLIC_TEST_VIDEOS[3].url,
+    vimeo_id: '769367056',
+    duration_seconds: PUBLIC_TEST_VIDEOS[3].duration,
+    rights_note: TEST_RIGHTS_NOTE,
+    video_platform: 'vimeo',
     title: 'Berlin FIPRESCI Winner Heritage Restored Clip',
     type: 'clip',
     view_count: 24500,
@@ -387,6 +418,11 @@ export async function fetchFeedTrailers({
       .select(`
         id,
         film_id,
+        video_url,
+        vimeo_id,
+        poster_url,
+        duration_seconds,
+        rights_note,
         youtube_id,
         title,
         type,
@@ -489,6 +525,11 @@ export async function fetchFeedTrailers({
         ),
         trailers (
           id,
+          video_url,
+          vimeo_id,
+          poster_url,
+          duration_seconds,
+          rights_note,
           youtube_id,
           title,
           type,
@@ -527,24 +568,21 @@ export async function fetchFeedTrailers({
       );
       const director = directorCredit?.people?.name || 'Filipino Filmmaker';
 
-      const VERIFIED_FALLBACK_TIKTOK_IDS = [
-        '7652287895692266769', // Leonor Will Never Die
-        '7445243271833488648', // Himala
-        '7608148655559920917', // Cleaners
-        '7684804262509006088', // John Denver Trending
-      ];
-
-      const rawVideoId = (t as any).tiktok_id || t.youtube_id || (t as any).video_id;
-      const extractedTikTok = extractTikTokId(rawVideoId);
-      const tiktokId = extractedTikTok || VERIFIED_FALLBACK_TIKTOK_IDS[i % VERIFIED_FALLBACK_TIKTOK_IDS.length];
+      const fallbackTest = PUBLIC_TEST_VIDEOS[i % PUBLIC_TEST_VIDEOS.length];
+      const videoUrl = (t as any).video_url || fallbackTest.url;
+      const durationSeconds = (t as any).duration_seconds || fallbackTest.duration;
+      const rightsNote = (t as any).rights_note || TEST_RIGHTS_NOTE;
+      const cleanVimeoId = (t as any).vimeo_id || extractVimeoId((t as any).video_url) || '769367056';
 
       formattedItems.push({
         id: t.id,
         film_id: t.film_id,
-        youtube_video_id: tiktokId,
-        tiktok_video_id: tiktokId,
-        video_id: tiktokId,
-        video_platform: 'tiktok',
+        video_url: videoUrl,
+        vimeo_id: cleanVimeoId,
+        poster_url: (t as any).poster_url || film?.poster_url || null,
+        duration_seconds: durationSeconds,
+        rights_note: rightsNote,
+        video_platform: 'vimeo',
         title: t.title,
         type: t.type,
         view_count: Number(t.view_count || 0),
@@ -552,7 +590,6 @@ export async function fetchFeedTrailers({
         film_title: film?.title || 'Philippine Film',
         release_year: film?.release_date ? new Date(film.release_date).getFullYear() : 2024,
         director,
-        poster_url: film?.poster_url || null,
         genres: genres.length > 0 ? genres : ['Philippine Cinema'],
         critic_score: 92,
         audience_score: 88,
@@ -568,32 +605,30 @@ export async function fetchFeedTrailers({
         is_promoted: false,
       });
 
-      // AGENTS.md Rule: Inject active promoted slot into feed at a strict ratio of at most 1 promoted item per 10 organic items.
-      // Never place a promoted item at position 1 (i = 0). The first item must always be organic.
-      // Promoted items must NEVER influence or bias rating, score, or review rankings.
+      // Insert at most 1 promoted slot after 10 organic items
       if ((i + 1) % 10 === 0 && promotedRows && promotedRows.length > 0) {
-        const slotIndex = Math.floor(i / 10) % promotedRows.length;
-        const slot = promotedRows[slotIndex];
+        const slot = promotedRows[Math.floor(i / 10) % promotedRows.length];
         const slotFilm = slot.films as any;
         const slotTrailer = slot.trailers as any;
-        const slotGenres = slotFilm?.film_genres
+
+        const slotGenres: string[] = slotFilm?.film_genres
           ? slotFilm.film_genres.map((g: any) => g.genres?.name).filter(Boolean)
           : ['Filipino Film'];
         const slotDirectorCredit = slotFilm?.film_credits?.find(
           (c: any) => c.role === 'director'
         );
         const slotDirector = slotDirectorCredit?.people?.name || 'Filipino Filmmaker';
-        const slotTikTok =
-          extractTikTokId((slotTrailer as any)?.tiktok_id || slotTrailer?.youtube_id) ||
-          '7652287895692266769';
+        const slotVimeoId = (slotTrailer as any)?.vimeo_id || extractVimeoId((slotTrailer as any)?.video_url) || '769367056';
 
         formattedItems.push({
           id: slotTrailer?.id || slot.id,
           film_id: slot.film_id,
-          youtube_video_id: slotTikTok,
-          tiktok_video_id: slotTikTok,
-          video_id: slotTikTok,
-          video_platform: 'tiktok',
+          video_url: slotTrailer?.video_url || PUBLIC_TEST_VIDEOS[0].url,
+          vimeo_id: slotVimeoId,
+          poster_url: slotTrailer?.poster_url || slotFilm?.poster_url || null,
+          duration_seconds: slotTrailer?.duration_seconds || 596,
+          rights_note: slotTrailer?.rights_note || TEST_RIGHTS_NOTE,
+          video_platform: 'vimeo',
           title: slotTrailer?.title || `Promoted • ${slot.sponsor_name}`,
           type: (slotTrailer?.type as any) || 'official',
           view_count: Number(slotTrailer?.view_count || 1200),
@@ -601,7 +636,6 @@ export async function fetchFeedTrailers({
           film_title: slotFilm?.title || 'Philippine Cinema Showcase',
           release_year: slotFilm?.release_date ? new Date(slotFilm.release_date).getFullYear() : 2024,
           director: slotDirector,
-          poster_url: slotFilm?.poster_url || null,
           genres: slotGenres,
           critic_score: 90,
           audience_score: 87,
@@ -625,40 +659,31 @@ export async function fetchFeedTrailers({
       hasMore,
     };
   } catch (err) {
-    console.warn('[Takilya Feed API] Fetch error, using fallback seed data:', err);
+    console.error('fetchFeedTrailers error, serving sample data:', err);
     return getSampleFeedPage(feedType, cursor, limit);
   }
 }
 
 /**
- * Fallback cursor pagination for sample items with polymorphic follow filtering
+ * Fallback static pagination generator
  */
 function getSampleFeedPage(
   feedType: FeedType,
   cursor?: string | null,
-  limit = 10,
+  limit: number = 10,
   followedEntityIds: string[] = []
 ): FeedPageResponse {
   let list = [...SAMPLE_PAGINATED_TRAILERS];
 
-  if (feedType === 'for_you') {
-    if (followedEntityIds.length > 0) {
-      const filtered = list.filter((item) =>
-        followedEntityIds.includes(item.posted_by_id)
-      );
-      if (filtered.length > 0) {
-        list = filtered;
-      }
-    } else {
-      // If user has not followed anyone yet, prioritize verified festival & studio clips
-      list = list.filter(
-        (item) => item.posted_by_type === 'festival' || item.posted_by_type === 'studio'
-      );
-    }
+  if (feedType === 'for_you' && followedEntityIds.length > 0) {
+    list.sort((a, b) => {
+      const aFollowed = followedEntityIds.includes(a.posted_by_id);
+      const bFollowed = followedEntityIds.includes(b.posted_by_id);
+      if (aFollowed && !bFollowed) return -1;
+      if (!aFollowed && bFollowed) return 1;
+      return 0;
+    });
   }
-
-  // Ensure ordered by recency
-  list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   let startIndex = 0;
   if (cursor) {
@@ -668,79 +693,74 @@ function getSampleFeedPage(
     }
   }
 
-  const slice = list.slice(startIndex, startIndex + limit);
-  const hasMore = startIndex + limit < list.length;
-  const nextCursor = hasMore && slice.length > 0 ? slice[slice.length - 1].created_at : null;
+  const items = list.slice(startIndex, startIndex + limit);
+  const nextCursor = items.length === limit ? items[items.length - 1].created_at : null;
 
   return {
-    items: slice,
+    items,
     nextCursor,
-    hasMore,
+    hasMore: startIndex + limit < list.length,
   };
 }
 
 /**
- * Increment trailer view count after 3 seconds of continuous playback
+ * Increments the view count for a trailer
  */
 export async function incrementTrailerView(trailerId: string): Promise<void> {
   try {
-    const { error } = await supabase.rpc('increment_trailer_view_count', { t_id: trailerId });
-    if (error) {
-      // Fallback: direct update if RPC is not present
-      await supabase
-        .from('trailers')
-        .update({ view_count: supabase.rpc('increment') as any })
-        .eq('id', trailerId);
-    }
-  } catch (err) {
-    // Non-blocking view increment error
-    console.debug('[Takilya Feed] Incremented local view for trailer:', trailerId);
+    await supabase.rpc('increment_trailer_view', { t_id: trailerId });
+  } catch (e) {
+    // Non-blocking telemetry
   }
 }
 
 /**
- * Log playback failure to failed_trailers table (Prompt Step 5)
+ * Log a trailer playback failure
  */
 export async function logFailedTrailer(trailerId: string, errorMessage: string): Promise<void> {
   try {
     await supabase.from('failed_trailers').insert({
       trailer_id: trailerId,
-      error: errorMessage,
-      created_at: new Date().toISOString(),
+      error_message: errorMessage,
+      occurred_at: new Date().toISOString(),
     });
-  } catch (err) {
-    console.debug('[Takilya Feed] Recorded local failed trailer log:', trailerId, errorMessage);
+  } catch {
+    // Non-blocking telemetry
   }
 }
 
 /**
- * Toggle Watchlist for a film
+ * Add or remove film from user's watchlist
  */
+export async function toggleWatchlist(
+  userId: string,
+  filmId: string,
+  currentlyInWatchlist: boolean
+): Promise<boolean> {
+  try {
+    if (currentlyInWatchlist) {
+      const { error } = await supabase
+        .from('watchlist')
+        .delete()
+        .eq('user_id', userId)
+        .eq('film_id', filmId);
+      return error ? currentlyInWatchlist : false;
+    } else {
+      const { error } = await supabase
+        .from('watchlist')
+        .insert({ user_id: userId, film_id: filmId });
+      return error ? currentlyInWatchlist : true;
+    }
+  } catch (err) {
+    console.error('toggleWatchlist error:', err);
+    return currentlyInWatchlist;
+  }
+}
+
 export async function toggleFilmWatchlist(
   filmId: string,
   userId: string,
   currentlySaved: boolean
-): Promise<{ saved: boolean; error?: string }> {
-  try {
-    if (currentlySaved) {
-      const { error } = await supabase
-        .from('watchlist')
-        .delete()
-        .eq('film_id', filmId)
-        .eq('user_id', userId);
-
-      if (error) return { saved: currentlySaved, error: error.message };
-      return { saved: false };
-    } else {
-      const { error } = await supabase.from('watchlist').insert({
-        film_id: filmId,
-        user_id: userId,
-      });
-
-      if (error) return { saved: currentlySaved, error: error.message };
-      return { saved: true };
-    }
-  } catch (err: any) {
-    return { saved: currentlySaved, error: err?.message };
-  }
+): Promise<boolean> {
+  return toggleWatchlist(userId, filmId, currentlySaved);
 }

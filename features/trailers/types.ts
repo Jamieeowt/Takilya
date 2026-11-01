@@ -10,13 +10,15 @@ export type TrailerPostedByType = 'admin' | 'studio' | 'festival' | 'person';
 export interface OfficialTrailerItem {
   id: string;
   film_id: string;
-  youtube_id: string;
+  video_url?: string;
+  youtube_id?: string;
   title: string;
   type: TrailerType;
   posted_by_type: TrailerPostedByType;
   posted_by_id: string;
   view_count: number;
   duration_seconds?: number | null;
+  rights_note?: string | null;
   published_at?: string | null;
   created_at: string;
   updated_at: string;

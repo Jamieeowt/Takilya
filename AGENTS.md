@@ -8,11 +8,14 @@ and mainstream films get equal organic visibility.
 React Native Expo (TypeScript, strict), Expo Router for navigation
 Supabase: PostgreSQL, Auth, Storage, Row Level Security
 TanStack Query for data fetching, Zustand for light client state
-Videos are TikTok embeds from official uploads only, loaded through the
-official TikTok embed player in react-native-webview. Only one WebView is
-mounted at a time (the visible feed item); other items show a thumbnail.
-Always provide a thumbnail plus a "Watch on TikTok" fallback if playback
-fails. Never host or upload video files.
+Videos play natively inside the app using expo-video from direct file URLs
+(Supabase Storage 'trailers' private bucket or direct HTTPS .mp4 / .m3u8), only
+for clips with documented permission or license in rights_note. No embeds,
+no WebViews, no 'Watch on ...' buttons in the normal flow. Keep at most
+the visible item and the next item mounted (preload the next). Muted by default
+with tap-to-unmute control. Single tap toggles pause, double tap likes. If
+playback fails, show the poster with a Retry button only and log to failed_trailers.
+Never show a blank black screen.
 ## App structure (bottom tabs)
 1. Feed: vertical, full-screen, swipe-up video player (trailers and official
 clips)
@@ -73,7 +76,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY from env.
 Enable Row Level Security on every table; write policies for each.
 Policies grant read access to authenticated users only, never anon.
 ## Out of scope
-Payments, ticketing, hosting video, TV series, real FDCP integration (use
+Payments, ticketing, hosting full feature films, TV series, real FDCP integration (use
 seed data standing in for FDCP records).
 ## Launch flow and auth gate
 Cold start: native splash, then an animated splash while the session

@@ -1,16 +1,14 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
-  Image,
   Share,
-  Platform,
-  Linking,
 } from 'react-native';
-import { useRouter, useIsFocused } from 'expo-router';
 import { WebView } from 'react-native-webview';
+import { Image } from 'expo-image';
+import { useRouter, useIsFocused } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -23,16 +21,16 @@ import Animated, {
   cancelAnimation,
 } from 'react-native-reanimated';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, spacing, radius, typography } from '@/lib/theme';
+import { spacing, typography } from '@/lib/theme';
+import { extractVimeoId, getVimeoEmbedUrl, DEFAULT_VIMEO_FALLBACK_ID } from '@/lib/video';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { PromotedPill } from '@/components/ui/PromotedPill';
 import { Chip } from '@/components/ui/Chip';
-import { extractTikTokId, getTikTokVideoUrl } from '@/lib/tiktok';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FeedTrailerItem } from '../types';
-import { useIncrementTrailerView, useToggleWatchlist } from '../useFeed';
 import { logFailedTrailer } from '../api';
+import { useIncrementTrailerView, useToggleWatchlist } from '../useFeed';
 import { useAuth } from '@/features/auth';
 import { useRecordPromotedEvent } from '@/features/promoted';
 import { ReportModal } from '@/components/moderation';
@@ -40,6 +38,7 @@ import { ReportModal } from '@/components/moderation';
 interface FeedVideoItemProps {
   item: FeedTrailerItem;
   isVisible: boolean;
+  shouldPreload?: boolean;
   play?: boolean;
   isMuted?: boolean;
   onToggleMute?: () => void;
@@ -52,6 +51,7 @@ interface FeedVideoItemProps {
 export function FeedVideoItem({
   item,
   isVisible,
+  shouldPreload = false,
   play: propPlay,
   isMuted: externalIsMuted,
   onToggleMute,
@@ -65,46 +65,45 @@ export function FeedVideoItem({
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
 
-  // Player state: starts muted for autoplay compliance, player ready state, playing state
-  const [isReady, setReady] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(externalIsMuted ?? true);
-  const [hasPlayerError, setHasPlayerError] = useState(false);
-
-  // Extract numeric TikTok ID (regex: /\d{15,25}/)
-  const rawId = item.tiktok_video_id || (item as any).video_id || item.youtube_video_id || '';
-  const cleanTikTokId = useMemo(() => {
-    const match = String(rawId).match(/\d{15,25}/);
-    if (match) return match[0];
-    const fallback = extractTikTokId(rawId);
-    return fallback || '7652287895692266769';
-  }, [rawId]);
-
-  // Step 3: Direct Official TikTok Embed Player URL
-  const playerUrl = useMemo(
-    () =>
-      `https://www.tiktok.com/player/v1/${cleanTikTokId}?autoplay=1&loop=1&controls=0&music_info=0&description=0&rel=0&native_context_menu=0&closed_captions=0`,
-    [cleanTikTokId]
-  );
-
-  // Reset player error and ready state when the video changes
-  useEffect(() => {
-    setHasPlayerError(false);
-    setReady(false);
-  }, [item.id, cleanTikTokId]);
-
-  // Social engagement state (Strict Monochrome: White #FFFFFF / Grays)
+  const [hasError, setHasError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const [isLiked, setIsLiked] = useState(Boolean(item.is_liked));
   const [likeCount, setLikeCount] = useState(item.like_count);
   const [isInWatchlist, setIsInWatchlist] = useState(Boolean(item.is_in_watchlist));
   const [isReportModalVisible, setIsReportModalVisible] = useState(false);
+  const [isExpandedSynopsis, setIsExpandedSynopsis] = useState(false);
 
   const hasIncrementedView = useRef(false);
   const incrementViewMutation = useIncrementTrailerView();
   const toggleWatchlistMutation = useToggleWatchlist();
   const recordPromotedEventMutation = useRecordPromotedEvent();
 
-  // Helper to record tap events on promoted items
+  // Active state for lifecycle virtualization
+  const isActive = isVisible && isFocused;
+
+  // Resolve Vimeo ID & background autoplay embed URL
+  const cleanVimeoId =
+    item.vimeo_id ||
+    extractVimeoId(item.video_url) ||
+    DEFAULT_VIMEO_FALLBACK_ID;
+  const vimeoUri = getVimeoEmbedUrl(cleanVimeoId);
+
+  // View count increment
+  useEffect(() => {
+    if (isActive && !hasIncrementedView.current) {
+      hasIncrementedView.current = true;
+      incrementViewMutation.mutate(item.id);
+
+      if (item.is_promoted && (item.promoted_slot_id || item.id)) {
+        recordPromotedEventMutation.mutate({
+          slot_id: item.promoted_slot_id || item.id,
+          event_type: 'impression',
+        });
+      }
+    }
+  }, [isActive, item.id, item.is_promoted, item.promoted_slot_id]);
+
+  // Promoted tap tracking
   const recordPromotedTap = () => {
     if (item.is_promoted && (item.promoted_slot_id || item.id)) {
       recordPromotedEventMutation.mutate({
@@ -114,243 +113,121 @@ export function FeedVideoItem({
     }
   };
 
-  // Double tap detection & spring heart animation
-  const lastTapRef = useRef<number>(0);
-  const singleTapTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const heartScale = useSharedValue(0);
-  const heartOpacity = useSharedValue(0);
-
   // Rotating vinyl poster disc animation
   const discRotation = useSharedValue(0);
 
-  // Bottom white progress bar animation
-  const progressWidth = useSharedValue(0);
-
-  // Shimmer skeleton animation while video WebView is loading
-  const shimmerOpacity = useSharedValue(0.35);
-
   useEffect(() => {
-    shimmerOpacity.value = withRepeat(
-      withTiming(0.8, { duration: 900, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true
-    );
-    return () => cancelAnimation(shimmerOpacity);
-  }, []);
-
-  // Synchronize external mute state
-  useEffect(() => {
-    if (externalIsMuted !== undefined) {
-      setIsMuted(externalIsMuted);
-    }
-  }, [externalIsMuted]);
-
-  // Make sure the active visible card sets play={true} when it becomes the primary viewable item
-  useEffect(() => {
-    if (isVisible && isFocused) {
-      setIsPlaying(true);
-    } else {
-      setIsPlaying(false);
-    }
-  }, [isVisible, isFocused]);
-
-  // Active viewability: true when screen is focused, card is visible, and playback is active
-  const isViewable = isFocused && isVisible && (propPlay !== undefined ? propPlay : true) && isPlaying;
-
-  // Step 5: 6-second fallback timeout
-  useEffect(() => {
-    let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
-    if (isViewable && !isReady && !hasPlayerError) {
-      timeoutTimer = setTimeout(() => {
-        if (!isReady) {
-          console.warn(`[TikTok Player Timeout (6s) for ${cleanTikTokId}]: Did not load in 6s. Triggering fallback.`);
-          setHasPlayerError(true);
-          void logFailedTrailer(item.id, `Timeout after 6s for TikTok ID ${cleanTikTokId}`);
-        }
-      }, 6000);
-    }
-    return () => {
-      if (timeoutTimer) clearTimeout(timeoutTimer);
-    };
-  }, [isViewable, isReady, hasPlayerError, cleanTikTokId, item.id]);
-
-  // Toggle mute handler (keeps mute=true by default for autoplay compliance)
-  const handleToggleMute = () => {
-    try {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {}
-    setIsMuted((prev) => !prev);
-    if (onToggleMute) {
-      onToggleMute();
-    }
-  };
-
-  // Programmatic play/pause toggle
-  const togglePlayPause = () => {
-    try {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {}
-    setIsPlaying((prev) => !prev);
-  };
-
-  // Rotating disc animation: spins continuously when playing, pauses when stopped
-  useEffect(() => {
-    if (isViewable && isReady && isPlaying) {
+    if (isActive) {
       discRotation.value = withRepeat(
-        withTiming(discRotation.value + 360, {
-          duration: 7000,
-          easing: Easing.linear,
-        }),
+        withTiming(360, { duration: 6000, easing: Easing.linear }),
         -1,
         false
       );
     } else {
       cancelAnimation(discRotation);
     }
+  }, [isActive]);
 
-    return () => {
-      cancelAnimation(discRotation);
-    };
-  }, [isViewable, isReady, isPlaying]);
+  const animatedDiscStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${discRotation.value}deg` }],
+  }));
 
-  // Bottom progress line animation: fills along bottom while playing
-  useEffect(() => {
-    if (isViewable && isReady && isPlaying) {
-      progressWidth.value = withRepeat(
-        withTiming(1, { duration: 30000, easing: Easing.linear }),
-        -1,
-        false
-      );
-    } else {
-      cancelAnimation(progressWidth);
-    }
+  // Double-tap heart animation
+  const heartScale = useSharedValue(0);
+  const heartOpacity = useSharedValue(0);
 
-    return () => {
-      cancelAnimation(progressWidth);
-    };
-  }, [isViewable, isReady, isPlaying]);
+  const animatedHeartStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: heartScale.value }],
+    opacity: heartOpacity.value,
+  }));
 
-  // View count increment: after 3 seconds of continuous playback
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
+  const triggerDoubleTapHeart = () => {
+    heartScale.value = 0.5;
+    heartOpacity.value = 1;
+    heartScale.value = withSpring(1.3, { damping: 8, stiffness: 220 }, () => {
+      heartOpacity.value = withTiming(0, { duration: 350 });
+      heartScale.value = withTiming(0, { duration: 350 });
+    });
+  };
 
-    if (isViewable && isReady && isPlaying && !hasPlayerError && !hasIncrementedView.current) {
-      timer = setTimeout(() => {
-        hasIncrementedView.current = true;
-        incrementViewMutation.mutate(item.id);
+  // Single vs double tap handling on the background video area
+  const lastTapRef = useRef<number>(0);
+  const tapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-        // Record impression for promoted slot after 3 seconds of continuous view
-        if (item.is_promoted && (item.promoted_slot_id || item.id)) {
-          recordPromotedEventMutation.mutate({
-            slot_id: item.promoted_slot_id || item.id,
-            event_type: 'impression',
-          });
-        }
-      }, 3000);
-    }
-
-    return () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-    };
-  }, [isViewable, isReady, isPlaying, hasPlayerError, item.id]);
-
-  // Double tap to like handler
-  const handleTapSurface = () => {
+  const handleVideoBackgroundTap = () => {
     const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300;
+    const DOUBLE_TAP_DELAY = 280;
 
     if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
-      // Double tap triggered!
-      if (singleTapTimeout.current) {
-        clearTimeout(singleTapTimeout.current);
-        singleTapTimeout.current = null;
+      if (tapTimeoutRef.current) {
+        clearTimeout(tapTimeoutRef.current);
+        tapTimeoutRef.current = null;
       }
-      lastTapRef.current = 0;
-
-      // Haptic tick
-      try {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch {}
-
-      // Like state
+      // Double tap: like trailer
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      recordPromotedTap();
+      triggerDoubleTapHeart();
       if (!isLiked) {
         setIsLiked(true);
         setLikeCount((prev) => prev + 1);
       }
-
-      // Spring heart animation
-      heartScale.value = 0;
-      heartOpacity.value = 1;
-      heartScale.value = withSpring(1.25, { damping: 10, stiffness: 220 });
-      heartOpacity.value = withTiming(0, { duration: 800 });
     } else {
       lastTapRef.current = now;
-      // Single tap: wait to verify it is not a double tap
-      singleTapTimeout.current = setTimeout(() => {
-        togglePlayPause();
-        lastTapRef.current = 0;
+      tapTimeoutRef.current = setTimeout(() => {
+        // Single tap: toggle mute / play
+        Haptics.selectionAsync().catch(() => {});
+        if (onToggleMute) {
+          onToggleMute();
+        }
       }, DOUBLE_TAP_DELAY);
     }
   };
 
-  // Handle Action Rail Like Toggle
+  // Toggle Like Handler
   const handleToggleLike = () => {
-    try {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {}
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     recordPromotedTap();
-    const nextState = !isLiked;
-    setIsLiked(nextState);
-    setLikeCount((prev) => (nextState ? prev + 1 : Math.max(0, prev - 1)));
-    if (nextState) {
-      heartScale.value = 0;
-      heartOpacity.value = 1;
-      heartScale.value = withSpring(1.1, { damping: 10, stiffness: 220 });
-      heartOpacity.value = withTiming(0, { duration: 700 });
+    if (isLiked) {
+      setIsLiked(false);
+      setLikeCount((prev) => Math.max(0, prev - 1));
+    } else {
+      setIsLiked(true);
+      setLikeCount((prev) => prev + 1);
+      triggerDoubleTapHeart();
     }
   };
 
-  // Handle Watchlist Toggle
+  // Toggle Watchlist Handler
   const handleToggleWatchlist = () => {
-    try {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {}
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     recordPromotedTap();
-    if (!user) {
-      router.push('/(tabs)/account' as any);
-      return;
+    setIsInWatchlist((prev) => !prev);
+    if (user?.id) {
+      toggleWatchlistMutation.mutate({
+        userId: user.id,
+        filmId: item.film_id,
+        currentlySaved: isInWatchlist,
+      });
     }
-
-    const nextState = !isInWatchlist;
-    setIsInWatchlist(nextState);
-    toggleWatchlistMutation.mutate({
-      filmId: item.film_id,
-      userId: user.id,
-      currentlySaved: isInWatchlist,
-    });
   };
 
-  // Handle Native Share
+  // Share Handler
   const handleShare = async () => {
-    try {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {}
+    Haptics.selectionAsync().catch(() => {});
     recordPromotedTap();
     try {
       await Share.share({
-        title: item.film_title,
-        message: `Watch "${item.film_title}" (${item.release_year}) official clip on Takilya: https://www.tiktok.com/video/${cleanTikTokId}`,
+        message: `Watch the trailer for "${item.film_title}" (${item.release_year}) on Takilya: Philippine Cinema.`,
+        title: item.title,
       });
-    } catch {}
+    } catch {
+      // User cancelled
+    }
   };
 
-  // Navigate to Film Detail Screen
+  // Film detail navigation
   const handleOpenFilmDetail = () => {
-    try {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {}
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     recordPromotedTap();
     const filmId = item.film_id || item.id;
     if (onPressFilm) {
@@ -360,234 +237,133 @@ export function FeedVideoItem({
     }
   };
 
-  // Animated styles
-  const animatedHeartStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: heartScale.value }],
-    opacity: heartOpacity.value,
-  }));
+  // Retry failed trailer playback
+  const handleRetry = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setHasError(false);
+    setRetryKey((prev) => prev + 1);
+  };
 
-  const animatedDiscStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${discRotation.value}deg` }],
-  }));
-
-  const animatedProgressStyle = useAnimatedStyle(() => ({
-    width: `${progressWidth.value * 100}%`,
-  }));
-
-  const animatedShimmerStyle = useAnimatedStyle(() => ({
-    opacity: shimmerOpacity.value,
-  }));
+  // Safe area bottom padding offset according to docs/SAFE_AREAS.md
+  const bottomInset = Math.max(insets.bottom, 12);
+  const overlayBottomOffset = 56 + bottomInset + 16;
 
   return (
     <View style={[styles.container, { height: itemHeight, width: itemWidth }]}>
-      {/* 1. Edge-to-edge Video Layer (Official TikTok 9:16 Vertical WebView Embed) */}
-      <View style={styles.playerContainer} pointerEvents="box-none">
-        {hasPlayerError || !cleanTikTokId ? (
-          <View style={styles.errorOverlay}>
+      {/* 1. Vimeo Video Player Embed Layer (WebView) */}
+      <View style={StyleSheet.absoluteFill}>
+        {isActive && !hasError ? (
+          <WebView
+            key={`vimeo-${cleanVimeoId}-${retryKey}`}
+            source={{ uri: vimeoUri }}
+            style={styles.webView}
+            containerStyle={styles.webViewContainer}
+            backgroundColor="#000000"
+            opacity={0.99}
+            allowsInlineMediaPlayback={true}
+            mediaPlaybackRequiresUserAction={false}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            androidHardwareAccelerationDisabled={false}
+            androidLayerType="hardware"
+            bounces={false}
+            scrollEnabled={false}
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
+            originWhitelist={['*']}
+            onShouldStartLoadWithRequest={(request) => {
+              return (
+                request.url.startsWith('https://player.vimeo.com') ||
+                request.url.startsWith('https://vimeo.com') ||
+                request.url.startsWith('about:blank')
+              );
+            }}
+            onError={(e) => {
+              console.warn('[Vimeo WebView Error]:', e.nativeEvent);
+              setHasError(true);
+              logFailedTrailer(item.id, e.nativeEvent.description || 'WebView error');
+            }}
+            onHttpError={(e) => {
+              if (e.nativeEvent.statusCode >= 400) {
+                console.warn('[Vimeo HTTP Error]:', e.nativeEvent.statusCode);
+                setHasError(true);
+                logFailedTrailer(item.id, `HTTP ${e.nativeEvent.statusCode}`);
+              }
+            }}
+          />
+        ) : hasError ? (
+          /* Error Fallback: Poster backdrop with Retry button (never black screen) */
+          <View style={StyleSheet.absoluteFill}>
             {item.poster_url && (
               <Image
                 source={{ uri: item.poster_url }}
-                style={styles.fullFill}
-                resizeMode="cover"
-                blurRadius={12}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
               />
             )}
-            <View style={styles.errorCard}>
-              <Ionicons name="film-outline" size={38} color="#FFFFFF" />
-              <Text style={styles.errorTitle}>Watch on TikTok</Text>
-              <Text style={styles.errorSub}>
-                Official clip playback is available directly on TikTok.
-              </Text>
-              <View style={styles.errorActionRow}>
+            <View style={styles.errorOverlay}>
+              <View style={styles.errorCard}>
+                <Ionicons name="alert-circle-outline" size={36} color="#FFFFFF" />
+                <Text style={styles.errorTitle}>Trailer Unavailable</Text>
+                <Text style={styles.errorSubtitle}>
+                  Unable to load Vimeo player stream.
+                </Text>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Retry loading video"
-                  onPress={() => {
-                    setHasPlayerError(false);
-                    setReady(false);
-                    setIsPlaying(true);
-                  }}
-                  style={styles.retryButton}>
-                  <Text style={styles.retryButtonText}>Retry</Text>
+                  accessibilityLabel="Retry trailer playback"
+                  onPress={handleRetry}
+                  style={styles.retryButton}
+                >
+                  <Ionicons name="refresh" size={18} color="#000000" style={{ marginRight: 6 }} />
+                  <Text style={styles.retryText}>Retry</Text>
                 </Pressable>
-                {cleanTikTokId ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Watch on TikTok"
-                    onPress={() =>
-                      void Linking.openURL(`https://www.tiktok.com/video/${cleanTikTokId}`)
-                    }
-                    style={styles.watchOnTikTokBtn}>
-                    <Ionicons
-                      name="logo-tiktok"
-                      size={16}
-                      color="#000000"
-                    />
-                    <Text style={styles.watchOnTikTokText}>Watch on TikTok</Text>
-                  </Pressable>
-                ) : null}
               </View>
             </View>
           </View>
         ) : (
-          <View style={styles.nativePlayerWrapper}>
-            {/* Step 4: Mount WebView ONLY for currently visible item */}
-            {isViewable ? (
-              <WebView
-                source={{ uri: playerUrl }}
-                originWhitelist={['*']}
-                javaScriptEnabled={true}
-                domStorageEnabled={true}
-                allowsInlineMediaPlayback={true}
-                mediaPlaybackRequiresUserAction={false}
-                allowsFullscreenVideo={false}
-                thirdPartyCookiesEnabled={true}
-                sharedCookiesEnabled={true}
-                setSupportMultipleWindows={false}
-                androidLayerType="hardware"
-                userAgent={
-                  Platform.OS === 'ios'
-                    ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Mobile/15E148 Safari/604.1'
-                    : 'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.127 Mobile Safari/537.36'
-                }
-                style={{
-                  flex: 1,
-                  backgroundColor: '#000000',
-                  opacity: 0.99,
-                }}
-                scrollEnabled={false}
-                bounces={false}
-                onShouldStartLoadWithRequest={(request) => {
-                  console.log(`[TikTok WebView onShouldStartLoadWithRequest ${cleanTikTokId}]:`, request.url);
-                  if (
-                    request.url.startsWith('about:') ||
-                    request.url.startsWith('data:') ||
-                    request.url.startsWith('blob:')
-                  ) {
-                    return true;
-                  }
-                  try {
-                    const parsed = new URL(request.url);
-                    const host = parsed.hostname.toLowerCase();
-                    const isAllowed =
-                      host === 'tiktok.com' ||
-                      host.endsWith('.tiktok.com') ||
-                      host === 'tiktokcdn.com' ||
-                      host.endsWith('.tiktokcdn.com');
-                    return isAllowed;
-                  } catch {
-                    return false;
-                  }
-                }}
-                onLoadStart={(e) => {
-                  console.log(`[TikTok WebView onLoadStart ${cleanTikTokId}]:`, e.nativeEvent.url);
-                  setReady(false);
-                }}
-                onLoadEnd={(e) => {
-                  console.log(`[TikTok WebView onLoadEnd ${cleanTikTokId}]:`, e.nativeEvent.url, e.nativeEvent.title);
-                  setReady(true);
-                  setHasPlayerError(false);
-                }}
-                onError={(e: any) => {
-                  console.error(`[TikTok WebView onError ${cleanTikTokId}]:`, e?.nativeEvent);
-                  setHasPlayerError(true);
-                  void logFailedTrailer(item.id, `WebView onError: ${JSON.stringify(e?.nativeEvent || {})}`);
-                }}
-                onHttpError={(e: any) => {
-                  console.error(`[TikTok WebView onHttpError ${cleanTikTokId}]:`, e?.nativeEvent);
-                  if (e?.nativeEvent?.statusCode >= 400) {
-                    setHasPlayerError(true);
-                    void logFailedTrailer(item.id, `WebView onHttpError status: ${e?.nativeEvent?.statusCode}`);
-                  }
-                }}
-                onMessage={(event) => {
-                  console.log(`[TikTok WebView onMessage ${cleanTikTokId}]:`, event.nativeEvent.data);
-                }}
+          /* Off-Screen Virtualization: Poster backdrop or dark placeholder */
+          <View style={StyleSheet.absoluteFill}>
+            {item.poster_url ? (
+              <Image
+                source={{ uri: item.poster_url }}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
               />
             ) : (
-              item.poster_url && (
-                <Image
-                  source={{ uri: item.poster_url }}
-                  style={styles.fullFill}
-                  resizeMode="cover"
-                />
-              )
-            )}
-
-            {/* Loading Shimmer Skeleton while WebView is loading */}
-            {isViewable && !isReady && !hasPlayerError && (
-              <View style={styles.skeletonContainer} pointerEvents="none">
-                {item.poster_url && (
-                  <Image
-                    source={{ uri: item.poster_url }}
-                    style={styles.fullFill}
-                    resizeMode="cover"
-                    blurRadius={12}
-                  />
-                )}
-                <Animated.View style={[styles.shimmerOverlay, animatedShimmerStyle]}>
-                  <View style={styles.loadingSpinnerContainer}>
-                    <Ionicons name="film-outline" size={32} color="#FFFFFF" style={{ opacity: 0.7 }} />
-                  </View>
-                </Animated.View>
-              </View>
+              <View style={[StyleSheet.absoluteFill, styles.darkPlaceholder]} />
             )}
           </View>
         )}
       </View>
 
-      {/* 2. Interactive Tap Layer (Single tap: play/pause, Double tap: like + spring heart) */}
+      {/* 2. Transparent Background Tap Surface for Play/Pause & Double-Tap Like */}
       <Pressable
+        style={StyleSheet.absoluteFill}
+        onPress={handleVideoBackgroundTap}
         accessibilityRole="button"
-        accessibilityLabel={isPlaying ? 'Pause video. Double tap to like.' : 'Play video. Double tap to like.'}
-        onPress={handleTapSurface}
-        style={styles.touchableSurface}>
-        {/* Centered Spring Heart Animation */}
-        <Animated.View pointerEvents="none" style={[styles.centeredHeart, animatedHeartStyle]}>
-          <Ionicons name="heart" size={100} color="#FFFFFF" />
-        </Animated.View>
+        accessibilityLabel="Video playback area, single tap to unmute, double tap to like"
+      />
 
-        {/* Centered Paused Indicator */}
-        {!isPlaying && isFocused && isVisible && !hasPlayerError && (
-          <View style={styles.pausedIndicator}>
-            <Ionicons name="play" size={44} color="#FFFFFF" />
-          </View>
-        )}
-      </Pressable>
+      {/* 3. Centered Double-Tap Animated Heart */}
+      <Animated.View pointerEvents="none" style={[styles.centeredHeart, animatedHeartStyle]}>
+        <Ionicons name="heart" size={96} color="#FFFFFF" />
+      </Animated.View>
 
-      {/* 3. Top Floating Tap-to-Unmute Pill (Strict Monochrome) */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={isMuted ? 'Unmute video audio' : 'Mute video audio'}
-        onPress={handleToggleMute}
-        hitSlop={8}
-        style={styles.unmuteButton}>
-        <Ionicons
-          name={isMuted ? 'volume-mute' : 'volume-high'}
-          size={16}
-          color="#FFFFFF"
-        />
-        <Text style={styles.unmuteText}>{isMuted ? 'Muted' : 'Sound On'}</Text>
-      </Pressable>
-
-      {/* 4. Promoted Slot Tag (Strict Monochrome outlined pill) */}
+      {/* 4. Top Promoted Slot Tag (if sponsored) */}
       {item.is_promoted && (
-        <View style={styles.promotedSlotTag} pointerEvents="box-none">
-          <PromotedPill
-            label="Promoted"
-            sponsorName={item.sponsor_name}
-          />
+        <View style={[styles.promotedSlotTag, { top: insets.top + 16 }]} pointerEvents="box-none">
+          <PromotedPill label="Promoted" sponsorName={item.sponsor_name} />
         </View>
       )}
 
-      {/* 5. Edge-to-edge Bottom Gradient Scrim (Svg: Transparent -> Black #000000) */}
+      {/* 5. Bottom Gradient Scrim for typography readability */}
       <View pointerEvents="none" style={styles.bottomScrimWrap}>
         <Svg width={itemWidth} height={420} style={StyleSheet.absoluteFill}>
           <Defs>
             <LinearGradient id="scrimGrad" x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0" stopColor="#000000" stopOpacity="0" />
-              <Stop offset="0.4" stopColor="#000000" stopOpacity="0.4" />
-              <Stop offset="0.75" stopColor="#000000" stopOpacity="0.82" />
+              <Stop offset="0.4" stopColor="#000000" stopOpacity="0.45" />
+              <Stop offset="0.75" stopColor="#000000" stopOpacity="0.85" />
               <Stop offset="1" stopColor="#000000" stopOpacity="0.98" />
             </LinearGradient>
           </Defs>
@@ -595,16 +371,17 @@ export function FeedVideoItem({
         </Svg>
       </View>
 
-      {/* 6. Bottom Content & Overlay (pointerEvents="box-none") */}
+      {/* 6. Bottom Overlay: Metadata (Left) & Action Rail (Right) with pointerEvents="box-none" */}
       <View
         style={[
           styles.overlayContainer,
-          { paddingBottom: Math.max(insets.bottom, 12) + spacing.md },
+          { paddingBottom: overlayBottomOffset },
         ]}
-        pointerEvents="box-none">
+        pointerEvents="box-none"
+      >
         {/* Left Side: Metadata Column */}
         <View style={styles.detailsCol} pointerEvents="box-none">
-          {/* Poster Account Row */}
+          {/* Entity Row (Poster account & verified badge) */}
           <View style={styles.posterAccountRow} pointerEvents="box-none">
             <View style={styles.accountIconBadge}>
               <Ionicons name="film" size={13} color="#FFFFFF" />
@@ -623,210 +400,208 @@ export function FeedVideoItem({
           {/* Film Title & Year */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`View film ${item.film_title}`}
+            accessibilityLabel={`View film details for ${item.film_title}`}
             onPress={handleOpenFilmDetail}
-            style={styles.titleRow}>
+            style={styles.titleRow}
+          >
             <Text style={styles.filmTitle} numberOfLines={1}>
               {item.film_title}
             </Text>
             <Text style={styles.filmYear}>({item.release_year})</Text>
           </Pressable>
 
-          {/* Poster Thumbnail + Director / Title */}
+          {/* Director & Poster thumbnail */}
           <View style={styles.trailerThumbnailRow} pointerEvents="box-none">
             {item.poster_url ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Open film details"
-                onPress={handleOpenFilmDetail}>
+                onPress={handleOpenFilmDetail}
+              >
                 <Image
                   source={{ uri: item.poster_url }}
                   style={styles.posterThumbnail}
-                  resizeMode="cover"
+                  contentFit="cover"
                 />
               </Pressable>
             ) : null}
 
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`View film card for ${item.film_title}`}
+              accessibilityLabel="View film"
               onPress={handleOpenFilmDetail}
-              style={styles.trailerMetaCol}>
-              <Text style={styles.directorText}>Dir. {item.director}</Text>
-              <Text style={styles.trailerTitleText} numberOfLines={2}>
+              style={{ flex: 1, justifyContent: 'center' }}
+            >
+              <Text style={styles.directorText} numberOfLines={1}>
+                Dir. {item.director}
+              </Text>
+              <Text style={styles.trailerItemTitle} numberOfLines={1}>
                 {item.title}
               </Text>
             </Pressable>
           </View>
 
-          {/* Genre Chips (Strict Monochrome) */}
-          <View style={styles.genreChipsRow} pointerEvents="box-none">
-            {item.genres.slice(0, 3).map((genre) => (
-              <Chip key={genre} label={genre} variant="outlined" onPress={handleOpenFilmDetail} />
-            ))}
-          </View>
+          {/* Genre Chips */}
+          {item.genres && item.genres.length > 0 && (
+            <View style={styles.genreChipsRow} pointerEvents="box-none">
+              {item.genres.slice(0, 3).map((genre, idx) => (
+                <Chip
+                  key={idx}
+                  label={genre}
+                  variant="outlined"
+                  style={styles.genreChip}
+                />
+              ))}
+            </View>
+          )}
 
-          {/* Dual Scores Row (Critic & Audience: Strict Monochrome) */}
-          {(item.critic_score || item.audience_score) && (
+          {/* Synopsis (expandable) */}
+          {item.synopsis && (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Scores for ${item.film_title}. Tap to view film details.`}
-              onPress={handleOpenFilmDetail}
-              style={styles.scoresRow}>
-              {item.critic_score && (
-                <View style={styles.scorePill}>
-                  <Ionicons name="star" size={12} color="#FFFFFF" />
-                  <Text style={styles.scoreValue}>Critic {item.critic_score}%</Text>
-                </View>
-              )}
-              {item.audience_score && (
-                <View style={styles.scorePill}>
-                  <Ionicons name="people" size={12} color="#D4D4D4" />
-                  <Text style={styles.scoreValueAudience}>Audience {item.audience_score}%</Text>
-                </View>
+              accessibilityLabel={isExpandedSynopsis ? 'Collapse synopsis' : 'Expand synopsis'}
+              onPress={() => setIsExpandedSynopsis((prev) => !prev)}
+              style={styles.synopsisContainer}
+            >
+              <Text
+                style={styles.synopsisText}
+                numberOfLines={isExpandedSynopsis ? undefined : 2}
+              >
+                {item.synopsis}
+              </Text>
+              {!isExpandedSynopsis && (
+                <Text style={styles.synopsisMore}>more</Text>
               )}
             </Pressable>
           )}
+
+          {/* Rights & Licensing Note */}
+          {item.rights_note && (
+            <View style={styles.rightsNoteRow} pointerEvents="box-none">
+              <Ionicons name="shield-checkmark-outline" size={11} color="#8A8A8A" style={{ marginRight: 4 }} />
+              <Text style={styles.rightsNoteText} numberOfLines={1}>
+                {item.rights_note}
+              </Text>
+            </View>
+          )}
         </View>
 
-        {/* Right Side: Action Rail & Rotating Poster Disc */}
-        <View style={styles.actionRailCol} pointerEvents="box-none">
-          {/* Like Action */}
+        {/* Right Side: Action Rail (Monochrome, min 44px tap targets) */}
+        <View style={styles.actionRail} pointerEvents="box-none">
+          {/* Like Button */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={isLiked ? 'Unlike trailer' : 'Like trailer'}
             onPress={handleToggleLike}
-            style={styles.actionRailBtn}>
-            <View style={[styles.actionIconWrap, isLiked && styles.actionIconWrapLiked]}>
+            style={styles.actionButton}
+            hitSlop={8}
+          >
+            <View style={[styles.actionIconCircle, isLiked && styles.actionIconCircleActive]}>
               <Ionicons
                 name={isLiked ? 'heart' : 'heart-outline'}
                 size={24}
                 color={isLiked ? '#000000' : '#FFFFFF'}
               />
             </View>
-            <Text style={styles.actionRailCount}>
-              {likeCount >= 1000 ? `${(likeCount / 1000).toFixed(1)}k` : likeCount}
-            </Text>
+            <Text style={styles.actionLabel}>{likeCount}</Text>
           </Pressable>
 
-          {/* Comment Action (Opens Bottom Sheet) */}
+          {/* Comments Button */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="View comments on trailer"
+            accessibilityLabel="Open discussion comments"
             onPress={() => {
-              try {
-                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              } catch {}
+              Haptics.selectionAsync().catch(() => {});
+              recordPromotedTap();
               onOpenComments(item);
             }}
-            style={styles.actionRailBtn}>
-            <View style={styles.actionIconWrap}>
-              <Ionicons name="chatbubble-ellipses-outline" size={24} color="#FFFFFF" />
+            style={styles.actionButton}
+            hitSlop={8}
+          >
+            <View style={styles.actionIconCircle}>
+              <Ionicons name="chatbubble-outline" size={22} color="#FFFFFF" />
             </View>
-            <Text style={styles.actionRailCount}>{item.comment_count}</Text>
+            <Text style={styles.actionLabel}>{item.comment_count}</Text>
           </Pressable>
 
-          {/* Add to Watchlist Action */}
+          {/* Watchlist Button */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={isInWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
             onPress={handleToggleWatchlist}
-            style={styles.actionRailBtn}>
-            <View style={[styles.actionIconWrap, isInWatchlist && styles.actionIconWrapSaved]}>
+            style={styles.actionButton}
+            hitSlop={8}
+          >
+            <View style={[styles.actionIconCircle, isInWatchlist && styles.actionIconCircleActive]}>
               <Ionicons
                 name={isInWatchlist ? 'bookmark' : 'bookmark-outline'}
-                size={24}
+                size={22}
                 color={isInWatchlist ? '#000000' : '#FFFFFF'}
               />
             </View>
-            <Text style={[styles.actionRailLabel, isInWatchlist && styles.actionRailLabelSaved]}>
-              {isInWatchlist ? 'Saved' : 'Watchlist'}
+            <Text style={styles.actionLabel}>
+              {isInWatchlist ? 'Added' : 'Watch'}
             </Text>
           </Pressable>
 
-          {/* Share Action */}
+          {/* Share Button */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Share film trailer"
+            accessibilityLabel="Share trailer"
             onPress={handleShare}
-            style={styles.actionRailBtn}>
-            <View style={styles.actionIconWrap}>
+            style={styles.actionButton}
+            hitSlop={8}
+          >
+            <View style={styles.actionIconCircle}>
               <Ionicons name="share-social-outline" size={22} color="#FFFFFF" />
             </View>
-            <Text style={styles.actionRailLabel}>Share</Text>
+            <Text style={styles.actionLabel}>Share</Text>
           </Pressable>
 
-          {/* Report Action (Prompt 5.2 Content Moderation) */}
+          {/* Report / Moderation Button */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Report trailer content"
+            accessibilityLabel="Report trailer"
             onPress={() => {
-              try {
-                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              } catch {}
+              Haptics.selectionAsync().catch(() => {});
               setIsReportModalVisible(true);
             }}
-            style={styles.actionRailBtn}>
-            <View style={styles.actionIconWrap}>
-              <Ionicons name="flag-outline" size={20} color="#FFFFFF" />
+            style={styles.actionButton}
+            hitSlop={8}
+          >
+            <View style={styles.actionIconCircle}>
+              <Ionicons name="ellipsis-horizontal" size={20} color="#FFFFFF" />
             </View>
-            <Text style={styles.actionRailLabel}>Report</Text>
           </Pressable>
 
-          {/* View Film Detail Action */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`View film details for ${item.film_title}`}
-            onPress={handleOpenFilmDetail}
-            style={styles.actionRailBtn}>
-            <View style={[styles.actionIconWrap, styles.actionIconWrapFilm]}>
-              <Ionicons name="film-outline" size={20} color="#FFFFFF" />
-            </View>
-            <Text style={styles.actionRailLabelFilm}>View Film</Text>
-          </Pressable>
-
-          {/* Rotating Poster Disc (Prompt 2.1 Visual Spec) */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Rotating vinyl disc for ${item.film_title}. Tap to view film.`}
-            onPress={handleOpenFilmDetail}
-            style={styles.discWrapper}>
-            <Animated.View style={[styles.vinylDisc, animatedDiscStyle]}>
-              {/* Concentric groove rings */}
-              <View style={styles.grooveOuter}>
-                <View style={styles.grooveInner}>
-                  {item.poster_url ? (
-                    <Image
-                      source={{ uri: item.poster_url }}
-                      style={styles.discPosterCenter}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={styles.discPosterCenter}>
-                      <Ionicons name="disc-outline" size={20} color="#8A8A8A" />
-                    </View>
-                  )}
-                  {/* Spindle hole */}
-                  <View style={styles.spindleHole} />
-                </View>
-              </View>
-            </Animated.View>
-          </Pressable>
+          {/* Rotating Vinyl Poster Disc */}
+          {item.poster_url && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="View film disc"
+              onPress={handleOpenFilmDetail}
+              style={styles.discContainer}
+            >
+              <Animated.View style={[styles.discOuter, animatedDiscStyle]}>
+                <Image
+                  source={{ uri: item.poster_url }}
+                  style={styles.discImage}
+                  contentFit="cover"
+                />
+                <View style={styles.discHole} />
+              </Animated.View>
+            </Pressable>
+          )}
         </View>
-      </View>
-
-      {/* 7. Thin White Progress Line Along the Bottom */}
-      <View style={styles.bottomProgressBarTrack}>
-        <Animated.View style={[styles.bottomProgressBarFill, animatedProgressStyle]} />
       </View>
 
       {/* Moderation Report Modal */}
       <ReportModal
         visible={isReportModalVisible}
+        onClose={() => setIsReportModalVisible(false)}
         targetType="trailer"
         targetId={item.id}
-        targetTitle={`${item.film_title} - ${item.title}`}
-        onClose={() => setIsReportModalVisible(false)}
+        targetTitle={`${item.film_title} Trailer`}
       />
     </View>
   );
@@ -836,158 +611,133 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#000000',
     overflow: 'hidden',
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  playerContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fullFill: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  webEmbedWrapper: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  nativePlayerWrapper: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+  webViewContainer: {
+    flex: 1,
     backgroundColor: '#000000',
   },
-  touchableSurface: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
+  webView: {
+    flex: 1,
+    backgroundColor: '#000000',
+    opacity: 0.99,
+  },
+  darkPlaceholder: {
+    backgroundColor: '#0A0A0A',
   },
   centeredHeart: {
     position: 'absolute',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOpacity: 0.6,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 4 },
+    top: '40%',
+    left: '50%',
+    marginLeft: -48,
+    marginTop: -48,
+    zIndex: 15,
   },
-  pausedIndicator: {
-    width: 72,
-    height: 72,
-    borderRadius: radius.full,
+  errorOverlay: {
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    justifyContent: 'center',
+    padding: spacing.xl,
   },
-  unmuteButton: {
-    position: 'absolute',
-    top: 54,
-    right: spacing.md,
+  errorCard: {
+    backgroundColor: '#141414',
+    borderRadius: 16,
+    padding: spacing.xl,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    maxWidth: 280,
+  },
+  errorTitle: {
+    ...typography.titleMedium,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    marginTop: spacing.sm,
+  },
+  errorSubtitle: {
+    ...typography.caption,
+    color: '#8A8A8A',
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(10, 10, 10, 0.75)',
-    borderColor: 'rgba(255, 255, 255, 0.18)',
-    borderWidth: 1,
-    borderRadius: radius.full,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: 24,
     minHeight: 44,
-    zIndex: 10,
+    minWidth: 120,
   },
-  unmuteText: {
-    color: '#FFFFFF',
-    fontSize: 12,
+  retryText: {
+    ...typography.caption,
+    color: '#000000',
     fontWeight: '700',
-    letterSpacing: 0.2,
   },
   promotedSlotTag: {
     position: 'absolute',
-    top: 54,
-    left: spacing.md,
-    zIndex: 10,
+    left: spacing.lg,
+    zIndex: 20,
   },
   bottomScrimWrap: {
     position: 'absolute',
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 0,
     height: 420,
-    zIndex: 2,
+    zIndex: 5,
   },
   overlayContainer: {
     position: 'absolute',
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 12,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-    zIndex: 5,
+    paddingHorizontal: spacing.lg,
+    zIndex: 10,
   },
   detailsCol: {
     flex: 1,
-    gap: 6,
-    paddingRight: spacing.md,
-    marginBottom: spacing.xs,
+    marginRight: spacing.md,
   },
   posterAccountRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    flexWrap: 'wrap',
+    marginBottom: spacing.xs,
   },
   accountIconBadge: {
     width: 22,
     height: 22,
-    borderRadius: radius.full,
+    borderRadius: 11,
     backgroundColor: '#1F1F1F',
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderWidth: 1,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.xs,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   posterAccountName: {
-    fontSize: 13,
-    fontWeight: '800',
+    ...typography.caption,
     color: '#FFFFFF',
-    textShadowColor: 'rgba(0,0,0,0.9)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    fontWeight: '700',
+    marginRight: 6,
+    maxWidth: 150,
   },
   typeBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderColor: 'rgba(255, 255, 255, 0.2)',
     borderWidth: 1,
-    borderRadius: radius.full,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    marginLeft: 4,
   },
   typeBadgeText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     color: '#D4D4D4',
     textTransform: 'uppercase',
@@ -995,319 +745,137 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 6,
-    flexWrap: 'wrap',
+    marginBottom: spacing.xs,
   },
   filmTitle: {
-    fontSize: 19,
-    fontWeight: '800',
+    ...typography.titleLarge,
     color: '#FFFFFF',
-    textShadowColor: 'rgba(0,0,0,0.95)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-    letterSpacing: -0.3,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    marginRight: spacing.xs,
+    flexShrink: 1,
   },
   filmYear: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#D4D4D4',
-    textShadowColor: 'rgba(0,0,0,0.9)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    ...typography.caption,
+    color: '#8A8A8A',
+    fontWeight: '600',
   },
   trailerThumbnailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginVertical: 2,
+    marginBottom: spacing.xs,
   },
   posterThumbnail: {
     width: 36,
     height: 52,
-    borderRadius: radius.xs,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 4,
     borderWidth: 1,
-    backgroundColor: '#141414',
-  },
-  trailerMetaCol: {
-    flex: 1,
-    gap: 2,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    marginRight: spacing.sm,
   },
   directorText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    textShadowColor: 'rgba(0,0,0,0.9)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  trailerTitleText: {
-    fontSize: 12,
+    ...typography.caption,
     color: '#D4D4D4',
-    lineHeight: 16,
-    textShadowColor: 'rgba(0,0,0,0.9)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    fontWeight: '600',
+  },
+  trailerItemTitle: {
+    ...typography.caption,
+    color: '#8A8A8A',
   },
   genreChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+    marginBottom: spacing.xs,
+  },
+  genreChip: {
+    height: 22,
+    paddingHorizontal: 8,
+  },
+  synopsisContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 4,
+  },
+  synopsisText: {
+    ...typography.caption,
+    color: '#D4D4D4',
+    lineHeight: 16,
+  },
+  synopsisMore: {
+    ...typography.caption,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  rightsNoteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 2,
   },
-  scoresRow: {
-    flexDirection: 'row',
+  rightsNoteText: {
+    fontSize: 10,
+    color: '#8A8A8A',
+  },
+  actionRail: {
     alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: 3,
+    gap: 16,
   },
-  scorePill: {
-    flexDirection: 'row',
+  actionButton: {
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(10, 10, 10, 0.75)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.xs,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderWidth: 1,
-  },
-  scoreValue: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  scoreValueAudience: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#D4D4D4',
-  },
-  actionRailCol: {
-    width: 60,
-    alignItems: 'center',
-    gap: 12,
-    paddingBottom: spacing.xs,
-  },
-  actionRailBtn: {
-    alignItems: 'center',
+    justifyContent: 'center',
     minWidth: 44,
     minHeight: 44,
-    justifyContent: 'center',
-    gap: 3,
   },
-  actionIconWrap: {
+  actionIconCircle: {
     width: 44,
     height: 44,
-    borderRadius: radius.full,
-    backgroundColor: 'rgba(10, 10, 10, 0.75)',
-    borderColor: 'rgba(255, 255, 255, 0.18)',
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     borderWidth: 1,
-    justifyContent: 'center',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
-  actionIconWrapLiked: {
+  actionIconCircleActive: {
     backgroundColor: '#FFFFFF',
     borderColor: '#FFFFFF',
   },
-  actionIconWrapSaved: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#FFFFFF',
-  },
-  actionIconWrapFilm: {
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-  },
-  actionRailCount: {
+  actionLabel: {
+    ...typography.caption,
+    color: '#FFFFFF',
     fontSize: 11,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    textShadowColor: 'rgba(0,0,0,0.9)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  actionRailLabel: {
-    fontSize: 10,
     fontWeight: '600',
-    color: '#D4D4D4',
-    textShadowColor: 'rgba(0,0,0,0.9)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
-  actionRailLabelSaved: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  actionRailLabelFilm: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  discWrapper: {
-    marginTop: 4,
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
+  discContainer: {
+    marginTop: 6,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  vinylDisc: {
+  discOuter: {
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: '#0A0A0A',
-    borderColor: '#2E2E2E',
+    backgroundColor: '#141414',
     borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  grooveOuter: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  grooveInner: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  discPosterCenter: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 16,
-    backgroundColor: '#1F1F1F',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  spindleHole: {
-    position: 'absolute',
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#000000',
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-    borderWidth: 1,
-  },
-  bottomProgressBarTrack: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 2.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    zIndex: 20,
-  },
-  bottomProgressBarFill: {
-    height: '100%',
-    backgroundColor: '#FFFFFF',
-  },
-  errorOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  errorCard: {
-    backgroundColor: '#0A0A0A',
-    borderRadius: radius.md,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
-    borderWidth: 1,
-    padding: spacing.xl,
-    alignItems: 'center',
-    gap: spacing.sm,
-    maxWidth: 320,
-  },
-  errorTitle: {
-    ...typography.titleSmall,
-    color: '#FFFFFF',
-    fontWeight: '800',
-  },
-  errorSub: {
-    ...typography.bodySmall,
-    color: '#8A8A8A',
-    textAlign: 'center',
-  },
-  errorActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  retryButton: {
     borderColor: 'rgba(255, 255, 255, 0.4)',
-    borderWidth: 1,
-    backgroundColor: '#141414',
-    paddingHorizontal: spacing.md,
-    minHeight: 44,
-    borderRadius: radius.xs,
-    justifyContent: 'center',
     alignItems: 'center',
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  watchOnTikTokBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.md,
-    minHeight: 44,
-    borderRadius: radius.xs,
     justifyContent: 'center',
+    overflow: 'hidden',
   },
-  watchOnTikTokText: {
-    color: '#000000',
-    fontWeight: '800',
-    fontSize: 13,
+  discImage: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
   },
-  skeletonContainer: {
+  discHole: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  shimmerOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(20, 20, 20, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingSpinnerContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#141414',
-    borderColor: 'rgba(255, 255, 255, 0.12)',
     borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
 });

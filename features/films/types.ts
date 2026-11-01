@@ -80,8 +80,9 @@ export interface FilmTrailerItem {
   film_id: string;
   youtube_id: string;
   tiktok_id?: string | null;
+  vimeo_id?: string | null;
   video_id?: string;
-  video_platform?: 'tiktok' | 'youtube';
+  video_platform?: 'vimeo' | 'native' | 'tiktok' | 'youtube';
   title: string;
   type: 'official' | 'teaser' | 'clip' | 'behind_the_scenes';
   view_count: number;
