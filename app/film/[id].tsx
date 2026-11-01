@@ -411,8 +411,12 @@ export default function FilmDetailScreen() {
         {/* Awards Carousel (Won, Nominated, Selection) */}
         <FilmAwardsSection awards={film.awards} />
 
-        {/* Verified Trailers & Clips YouTube Carousel */}
-        <FilmMediaSection trailers={film.trailers} />
+        {/* Verified Trailers & Clips Carousel (TikTok & YouTube) */}
+        <FilmMediaSection
+          trailers={film.trailers}
+          filmPoster={film.poster_url}
+          filmBackdrop={film.backdrop_url}
+        />
 
         {/* Community Reviews & "Write a Review" entry */}
         <FilmReviewsSection

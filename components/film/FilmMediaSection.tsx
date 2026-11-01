@@ -8,34 +8,61 @@ import {
   Modal,
   Dimensions,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { Play, X, Video, Volume2, VolumeX, Flag, AlertCircle } from 'lucide-react-native';
-import YoutubePlayer from 'react-native-youtube-iframe';
+import { Play, X, Volume2, VolumeX, Flag, AlertCircle } from 'lucide-react-native';
+import { WebView } from 'react-native-webview';
 import * as Haptics from 'expo-haptics';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { FilmTrailerItem } from '@/features/films/types';
-import { extractYouTubeId } from '@/lib/youtube';
+import {
+  extractTikTokId,
+  getTikTokEmbedHtml,
+  getTikTokVideoUrl,
+  detectVideoPlatform,
+  extractYouTubeId,
+} from '@/lib/video';
 import { ReportModal } from '@/components/moderation';
 import { radius, typography, spacing } from '@/lib/theme';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-interface FilmMediaSectionProps {
+export interface FilmMediaSectionProps {
   trailers: FilmTrailerItem[];
+  filmPoster?: string | null;
+  filmBackdrop?: string | null;
 }
 
-export function FilmMediaSection({ trailers }: FilmMediaSectionProps) {
+export function FilmMediaSection({ trailers, filmPoster, filmBackdrop }: FilmMediaSectionProps) {
   const [activeVideo, setActiveVideo] = useState<FilmTrailerItem | null>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [isReporting, setIsReporting] = useState(false);
   const [hasPlayerError, setHasPlayerError] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
-  const cleanVideoId = React.useMemo(
-    () => extractYouTubeId(activeVideo?.youtube_id || (activeVideo as any)?.youtube_video_id),
-    [activeVideo?.youtube_id, (activeVideo as any)?.youtube_video_id]
-  );
+  // Platform detection for active modal video
+  const platform = React.useMemo(() => {
+    if (!activeVideo) return 'unknown';
+    if (activeVideo.video_platform) return activeVideo.video_platform;
+    return detectVideoPlatform(activeVideo.tiktok_id || activeVideo.video_id || activeVideo.youtube_id);
+  }, [activeVideo]);
+
+  const isTikTok = platform === 'tiktok';
+
+  const cleanVideoId = React.useMemo(() => {
+    if (!activeVideo) return null;
+    if (isTikTok) {
+      return (
+        extractTikTokId(activeVideo.tiktok_id || activeVideo.video_id || activeVideo.youtube_id) || null
+      );
+    }
+    return (
+      extractYouTubeId(
+        activeVideo.youtube_id || activeVideo.video_id || (activeVideo as any)?.youtube_video_id
+      ) || null
+    );
+  }, [activeVideo, isTikTok]);
 
   React.useEffect(() => {
     setHasPlayerError(false);
@@ -63,6 +90,12 @@ export function FilmMediaSection({ trailers }: FilmMediaSectionProps) {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
+  const modalPlayerWidth = Math.min(SCREEN_WIDTH - 48, 380);
+  const maxPlayerHeight = Math.max(260, SCREEN_HEIGHT - 220);
+  const modalPlayerHeight = isTikTok
+    ? Math.min(modalPlayerWidth * (16 / 9), maxPlayerHeight, 520)
+    : modalPlayerWidth * (9 / 16);
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -78,7 +111,19 @@ export function FilmMediaSection({ trailers }: FilmMediaSectionProps) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollList}>
         {trailers.map((item) => {
-          const thumbUrl = `https://img.youtube.com/vi/${item.youtube_id}/hqdefault.jpg`;
+          const itemPlatform =
+            item.video_platform ||
+            detectVideoPlatform(item.tiktok_id || item.video_id || item.youtube_id);
+          const isItemTikTok = itemPlatform === 'tiktok';
+          const itemVideoId = isItemTikTok
+            ? extractTikTokId(item.tiktok_id || item.video_id || item.youtube_id)
+            : extractYouTubeId(item.youtube_id || item.video_id);
+
+          const thumbUrl =
+            !isItemTikTok && itemVideoId
+              ? `https://img.youtube.com/vi/${itemVideoId}/hqdefault.jpg`
+              : (filmBackdrop || filmPoster || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=600&auto=format&fit=crop&q=80');
+
           const durationStr = formatDuration(item.duration_seconds);
 
           return (
@@ -108,7 +153,7 @@ export function FilmMediaSection({ trailers }: FilmMediaSectionProps) {
                 {/* Top Type Pill */}
                 <View style={styles.typeBadge}>
                   <Text style={styles.typeBadgeText}>
-                    {item.type.toUpperCase()}
+                    {isItemTikTok ? 'TIKTOK' : item.type.toUpperCase()}
                   </Text>
                 </View>
 
@@ -143,7 +188,7 @@ export function FilmMediaSection({ trailers }: FilmMediaSectionProps) {
         })}
       </ScrollView>
 
-      {/* Video Modal Player (strict YouTube embed) */}
+      {/* Video Modal Player (TikTok 9:16 vertical / YouTube embed via WebView) */}
       <Modal
         visible={Boolean(activeVideo)}
         animationType="fade"
@@ -193,10 +238,10 @@ export function FilmMediaSection({ trailers }: FilmMediaSectionProps) {
             {activeVideo && (
               <View style={styles.playerWrapper}>
                 {hasPlayerError || !cleanVideoId ? (
-                  <View style={styles.errorCard}>
+                  <View style={[styles.errorCard, { height: modalPlayerHeight, justifyContent: 'center' }]}>
                     <AlertCircle size={32} color="#FFFFFF" />
                     <Text style={styles.errorTitle}>Video unavailable</Text>
-                    <Text style={styles.errorSub}>The official trailer could not be loaded.</Text>
+                    <Text style={styles.errorSub}>The official media could not be loaded.</Text>
                     <View style={styles.errorActionRow}>
                       <Pressable
                         accessibilityRole="button"
@@ -211,81 +256,91 @@ export function FilmMediaSection({ trailers }: FilmMediaSectionProps) {
                       {cleanVideoId ? (
                         <Pressable
                           accessibilityRole="button"
-                          accessibilityLabel="Open trailer on YouTube"
-                          onPress={() => void Linking.openURL(`https://www.youtube.com/watch?v=${cleanVideoId}`)}
-                          style={styles.openYouTubeBtn}>
-                          <Text style={styles.openYouTubeText}>YouTube</Text>
+                          accessibilityLabel={isTikTok ? 'Open trailer on TikTok' : 'Open trailer on YouTube'}
+                          onPress={() =>
+                            void Linking.openURL(
+                              isTikTok
+                                ? getTikTokVideoUrl(cleanVideoId)
+                                : `https://www.youtube.com/watch?v=${cleanVideoId}`
+                            )
+                          }
+                          style={styles.openPlatformBtn}>
+                          <Text style={styles.openPlatformText}>{isTikTok ? 'TikTok' : 'YouTube'}</Text>
                         </Pressable>
                       ) : null}
                     </View>
                   </View>
                 ) : (
-                  <YoutubePlayer
-                    height={(SCREEN_WIDTH - 32) * (9 / 16)}
-                    width={SCREEN_WIDTH - 32}
-                    videoId={cleanVideoId}
-                    play={true}
-                    mute={isMuted}
-                    webViewStyle={{ backgroundColor: '#000000', opacity: 0.99 }}
-                    initialPlayerParams={{
-                      preventFullScreen: true,
-                      controls: true,
-                      modestbranding: true,
-                      rel: false,
-                      autoplay: true,
-                      iv_load_policy: 3,
-                    }}
-                    webViewProps={{
-                      androidLayerType: 'hardware',
-                      mediaPlaybackRequiresUserAction: false,
-                      allowsInlineMediaPlayback: true,
-                      source: {
-                        baseUrl: 'https://takilya.app',
-                      },
-                    }}
-                    onReady={() => {
-                      setIsReady(true);
-                      setHasPlayerError(false);
-                    }}
-                    onError={(error: string) => {
-                      console.warn(`[YouTube Player Error for ${cleanVideoId}]:`, error);
-                      // Only set error if it is an actual unrecoverable embed code (100, 101, 150)
-                      if (
-                        error === '100' ||
-                        error === '101' ||
-                        error === '150' ||
-                        error === 'video_not_found' ||
-                        error === 'embed_not_allowed'
-                      ) {
+                  <View style={[styles.nativePlayerWrapper, { width: modalPlayerWidth, height: modalPlayerHeight }]}>
+                    <WebView
+                      source={{
+                        html: isTikTok
+                          ? getTikTokEmbedHtml(cleanVideoId)
+                          : `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{width:100%;height:100%;background-color:#000000;overflow:hidden;display:flex;align-items:center;justify-content:center;}iframe{width:100%!important;height:100%!important;border:none!important;}</style></head><body><iframe src="https://www.youtube.com/embed/${cleanVideoId}?autoplay=1&mute=${isMuted ? 1 : 0}&playsinline=1&controls=1&modestbranding=1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></body></html>`,
+                        baseUrl: isTikTok ? 'https://www.tiktok.com' : 'https://www.youtube.com',
+                      }}
+                      style={{
+                        width: modalPlayerWidth,
+                        height: modalPlayerHeight,
+                        backgroundColor: '#000000',
+                        opacity: 0.99,
+                      }}
+                      allowsInlineMediaPlayback={true}
+                      mediaPlaybackRequiresUserAction={false}
+                      javaScriptEnabled={true}
+                      domStorageEnabled={true}
+                      androidLayerType="hardware"
+                      scrollEnabled={false}
+                      bounces={false}
+                      onLoadStart={() => setIsReady(false)}
+                      onLoadEnd={() => {
+                        setIsReady(true);
+                        setHasPlayerError(false);
+                      }}
+                      onError={(syntheticEvent) => {
+                        console.warn(`[Video Modal Player Error for ${cleanVideoId}]:`, syntheticEvent.nativeEvent);
                         setHasPlayerError(true);
-                      }
-                    }}
-                  />
+                      }}
+                    />
+                    {!isReady && !hasPlayerError && (
+                      <View style={styles.modalLoadingOverlay} pointerEvents="none">
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      </View>
+                    )}
+                  </View>
                 )}
               </View>
             )}
 
-            {/* Bottom Controls / Mute Toggle */}
+            {/* Bottom Controls / Mute Toggle & Platform Branding */}
             <View style={styles.modalFooter}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={isMuted ? 'Unmute video audio' : 'Mute video audio'}
-                onPress={() => setIsMuted(!isMuted)}
-                style={styles.muteToggleBtn}>
-                {isMuted ? (
-                  <>
-                    <VolumeX size={16} color="#FFFFFF" />
-                    <Text style={styles.muteBtnText}>Tap to Unmute</Text>
-                  </>
-                ) : (
-                  <>
-                    <Volume2 size={16} color="#FFFFFF" />
-                    <Text style={styles.muteBtnText}>Audio On</Text>
-                  </>
-                )}
-              </Pressable>
+              {!isTikTok ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={isMuted ? 'Unmute video audio' : 'Mute video audio'}
+                  onPress={() => setIsMuted(!isMuted)}
+                  style={styles.muteToggleBtn}>
+                  {isMuted ? (
+                    <>
+                      <VolumeX size={16} color="#FFFFFF" />
+                      <Text style={styles.muteBtnText}>Tap to Unmute</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 size={16} color="#FFFFFF" />
+                      <Text style={styles.muteBtnText}>Audio On</Text>
+                    </>
+                  )}
+                </Pressable>
+              ) : (
+                <View style={styles.tikTokAudioHint}>
+                  <Text style={styles.tikTokAudioHintText}>Player audio controls</Text>
+                </View>
+              )}
 
-              <Text style={styles.ytDisclaimer}>YouTube Official Embed</Text>
+              <Text style={styles.ytDisclaimer}>
+                {isTikTok ? 'TikTok Official Embed' : 'YouTube Official Embed'}
+              </Text>
             </View>
           </View>
 
@@ -450,12 +505,14 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
+    maxWidth: 420,
     backgroundColor: '#0A0A0A',
     borderRadius: radius.cardLarge,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.16)',
     padding: 16,
     gap: 14,
+    alignSelf: 'center',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -510,6 +567,24 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     overflow: 'hidden',
     backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nativePlayerWrapper: {
+    backgroundColor: '#000000',
+    overflow: 'hidden',
+    borderRadius: radius.sm,
+    position: 'relative',
+  },
+  modalLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalFooter: {
     flexDirection: 'row',
@@ -533,6 +608,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 12,
+  },
+  tikTokAudioHint: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  tikTokAudioHintText: {
+    ...typography.caption,
+    color: '#8A8A8A',
+    fontSize: 11,
   },
   ytDisclaimer: {
     ...typography.mono,
@@ -581,19 +665,19 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 12,
   },
-  openYouTubeBtn: {
+  openPlatformBtn: {
     borderColor: 'rgba(255, 255, 255, 0.35)',
     borderWidth: 1,
+    backgroundColor: '#1F1F1F',
     paddingHorizontal: spacing.md,
     minHeight: 40,
     borderRadius: radius.xs,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  openYouTubeText: {
+  openPlatformText: {
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 12,
   },
 });
-

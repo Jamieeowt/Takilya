@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { extractYouTubeId } from '@/lib/youtube';
+import { extractTikTokId } from '@/lib/tiktok';
+import { detectVideoPlatform } from '@/lib/video';
 import { FeedPageResponse, FeedTrailerItem, FeedType } from './types';
 
 /**
@@ -10,7 +12,10 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0002-0000-0000-000000000000',
     film_id: 'cccccccc-0003-0000-0000-000000000000',
-    youtube_video_id: '7lMwbA9bUVo',
+    youtube_video_id: '7652287895692266769',
+    tiktok_video_id: '7652287895692266769',
+    video_id: '7652287895692266769',
+    video_platform: 'tiktok',
     title: 'Official Sundance US Trailer',
     type: 'official',
     view_count: 38200,
@@ -36,7 +41,10 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0001-0000-0000-000000000000',
     film_id: 'cccccccc-0001-0000-0000-000000000000',
-    youtube_video_id: 'L_LUpnjgPso',
+    youtube_video_id: '7445243271833488648',
+    tiktok_video_id: '7445243271833488648',
+    video_id: '7445243271833488648',
+    video_platform: 'tiktok',
     title: 'Heritage 4K Restored Official Trailer',
     type: 'official',
     view_count: 45000,
@@ -62,7 +70,10 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0003-0000-0000-000000000000',
     film_id: 'cccccccc-0004-0000-0000-000000000000',
-    youtube_video_id: '8b1T8k5qP8A',
+    youtube_video_id: '7684804262509006088',
+    tiktok_video_id: '7684804262509006088',
+    video_id: '7684804262509006088',
+    video_platform: 'tiktok',
     title: 'Cinemalaya Main Competition Clip',
     type: 'clip',
     view_count: 19800,
@@ -88,7 +99,10 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0004-0000-0000-000000000000',
     film_id: 'cccccccc-0005-0000-0000-000000000000',
-    youtube_video_id: 'kJQP7kiw5Fk',
+    youtube_video_id: '7608148655559920917',
+    tiktok_video_id: '7608148655559920917',
+    video_id: '7608148655559920917',
+    video_platform: 'tiktok',
     title: 'QCinema Photocopied High School Trailer',
     type: 'official',
     view_count: 28500,
@@ -114,7 +128,10 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0005-0000-0000-000000000000',
     film_id: 'cccccccc-0002-0000-0000-000000000000',
-    youtube_video_id: 'vP88v2B4a_A',
+    youtube_video_id: '7445243271833488648',
+    tiktok_video_id: '7445243271833488648',
+    video_id: '7445243271833488648',
+    video_platform: 'tiktok',
     title: 'World Cinema Project Restored 4K Teaser',
     type: 'teaser',
     view_count: 32400,
@@ -140,7 +157,10 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0006-0000-0000-000000000000',
     film_id: 'cccccccc-0006-0000-0000-000000000000',
-    youtube_video_id: 'I_tOzY_k34M',
+    youtube_video_id: '7684804262509006088',
+    tiktok_video_id: '7684804262509006088',
+    video_id: '7684804262509006088',
+    video_platform: 'tiktok',
     title: 'Official Epic Theatrical Trailer',
     type: 'official',
     view_count: 89000,
@@ -166,7 +186,10 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0007-0000-0000-000000000000',
     film_id: 'cccccccc-0007-0000-0000-000000000000',
-    youtube_video_id: '1fXn01_FvD0',
+    youtube_video_id: '7652287895692266769',
+    tiktok_video_id: '7652287895692266769',
+    video_id: '7652287895692266769',
+    video_platform: 'tiktok',
     title: 'The Young General Official Trailer',
     type: 'official',
     view_count: 64200,
@@ -192,7 +215,10 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0008-0000-0000-000000000000',
     film_id: 'cccccccc-0008-0000-0000-000000000000',
-    youtube_video_id: 'E9p3vE2mFvg',
+    youtube_video_id: '7608148655559920917',
+    tiktok_video_id: '7608148655559920917',
+    video_id: '7608148655559920917',
+    video_platform: 'tiktok',
     title: 'Cinemalaya Audience Choice Official Trailer',
     type: 'official',
     view_count: 22100,
@@ -218,7 +244,10 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0009-0000-0000-000000000000',
     film_id: 'cccccccc-0009-0000-0000-000000000000',
-    youtube_video_id: 'R8tHz3ZgJ4E',
+    youtube_video_id: '7608148655559920917',
+    tiktok_video_id: '7608148655559920917',
+    video_id: '7608148655559920917',
+    video_platform: 'tiktok',
     title: 'Official Well Go USA Action Trailer',
     type: 'official',
     view_count: 54200,
@@ -244,7 +273,10 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0010-0000-0000-000000000000',
     film_id: 'cccccccc-0010-0000-0000-000000000000',
-    youtube_video_id: 'GSdh2IkQYxC',
+    youtube_video_id: '7684804262509006088',
+    tiktok_video_id: '7684804262509006088',
+    video_id: '7684804262509006088',
+    video_platform: 'tiktok',
     title: 'Cannes Directors Fortnight Official Trailer',
     type: 'official',
     view_count: 72000,
@@ -271,7 +303,10 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '30303030-0001-0000-0000-000000000000',
     film_id: 'cccccccc-0003-0000-0000-000000000000',
-    youtube_video_id: '7lMwbA9bUVo',
+    youtube_video_id: '7652287895692266769',
+    tiktok_video_id: '7652287895692266769',
+    video_id: '7652287895692266769',
+    video_platform: 'tiktok',
     title: 'QCinema Autumn Re-Release Special Feature',
     type: 'official',
     view_count: 42100,
@@ -299,7 +334,10 @@ export const SAMPLE_PAGINATED_TRAILERS: FeedTrailerItem[] = [
   {
     id: '20202020-0012-0000-0000-000000000000',
     film_id: 'cccccccc-0012-0000-0000-000000000000',
-    youtube_video_id: '9Zk5Q3hJ1zA',
+    youtube_video_id: '7445243271833488648',
+    tiktok_video_id: '7445243271833488648',
+    video_id: '7445243271833488648',
+    video_platform: 'tiktok',
     title: 'Berlin FIPRESCI Winner Heritage Restored Clip',
     type: 'clip',
     view_count: 24500,
@@ -489,10 +527,24 @@ export async function fetchFeedTrailers({
       );
       const director = directorCredit?.people?.name || 'Filipino Filmmaker';
 
+      const VERIFIED_FALLBACK_TIKTOK_IDS = [
+        '7652287895692266769', // Leonor Will Never Die
+        '7445243271833488648', // Himala
+        '7608148655559920917', // Cleaners
+        '7684804262509006088', // John Denver Trending
+      ];
+
+      const rawVideoId = (t as any).tiktok_id || t.youtube_id || (t as any).video_id;
+      const extractedTikTok = extractTikTokId(rawVideoId);
+      const tiktokId = extractedTikTok || VERIFIED_FALLBACK_TIKTOK_IDS[i % VERIFIED_FALLBACK_TIKTOK_IDS.length];
+
       formattedItems.push({
         id: t.id,
         film_id: t.film_id,
-        youtube_video_id: extractYouTubeId(t.youtube_id),
+        youtube_video_id: tiktokId,
+        tiktok_video_id: tiktokId,
+        video_id: tiktokId,
+        video_platform: 'tiktok',
         title: t.title,
         type: t.type,
         view_count: Number(t.view_count || 0),
@@ -531,11 +583,17 @@ export async function fetchFeedTrailers({
           (c: any) => c.role === 'director'
         );
         const slotDirector = slotDirectorCredit?.people?.name || 'Filipino Filmmaker';
+        const slotTikTok =
+          extractTikTokId((slotTrailer as any)?.tiktok_id || slotTrailer?.youtube_id) ||
+          '7652287895692266769';
 
         formattedItems.push({
           id: slotTrailer?.id || slot.id,
           film_id: slot.film_id,
-          youtube_video_id: extractYouTubeId(slotTrailer?.youtube_id || '7lMwbA9bUVo'),
+          youtube_video_id: slotTikTok,
+          tiktok_video_id: slotTikTok,
+          video_id: slotTikTok,
+          video_platform: 'tiktok',
           title: slotTrailer?.title || `Promoted • ${slot.sponsor_name}`,
           type: (slotTrailer?.type as any) || 'official',
           view_count: Number(slotTrailer?.view_count || 1200),

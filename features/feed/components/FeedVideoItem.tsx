@@ -10,7 +10,7 @@ import {
   Linking,
 } from 'react-native';
 import { useRouter, useIsFocused } from 'expo-router';
-import YoutubePlayer from 'react-native-youtube-iframe';
+import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -28,7 +28,7 @@ import { colors, spacing, radius, typography } from '@/lib/theme';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { PromotedPill } from '@/components/ui/PromotedPill';
 import { Chip } from '@/components/ui/Chip';
-import { extractYouTubeId } from '@/lib/youtube';
+import { extractTikTokId, getTikTokVideoUrl } from '@/lib/tiktok';
 import { FeedTrailerItem } from '../types';
 import { useIncrementTrailerView, useToggleWatchlist } from '../useFeed';
 import { useAuth } from '@/features/auth';
@@ -68,17 +68,54 @@ export function FeedVideoItem({
   const [isMuted, setIsMuted] = useState(externalIsMuted ?? true);
   const [hasPlayerError, setHasPlayerError] = useState(false);
 
-  // Safely extract the 11-character YouTube video ID (handles raw IDs, watch URLs, youtu.be, embed, shorts)
-  const cleanVideoId = useMemo(
-    () => extractYouTubeId(item.youtube_video_id || (item as any).youtube_id),
-    [item.youtube_video_id, (item as any).youtube_id]
-  );
+  // Extract numeric TikTok ID (regex: /\d{15,25}/)
+  const rawId = item.tiktok_video_id || (item as any).video_id || item.youtube_video_id || '';
+  const cleanTikTokId = useMemo(() => {
+    const match = String(rawId).match(/\d{15,25}/);
+    if (match) return match[0];
+    const fallback = extractTikTokId(rawId);
+    return fallback || '7652287895692266769';
+  }, [rawId]);
+
+  // Official TikTok embed iframe HTML
+  const embedHtml = useMemo(() => {
+    return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 100%;
+        height: 100%;
+        background-color: #000000;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      iframe {
+        width: 100% !important;
+        height: 100% !important;
+        border: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <iframe
+      src="https://www.tiktok.com/embed/v2/${cleanTikTokId}?lang=en-US"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowfullscreen>
+    </iframe>
+  </body>
+</html>`;
+  }, [cleanTikTokId]);
 
   // Reset player error and ready state when the video changes
   useEffect(() => {
     setHasPlayerError(false);
     setReady(false);
-  }, [item.id, cleanVideoId]);
+  }, [item.id, cleanTikTokId]);
 
   // Social engagement state (Strict Monochrome: White #FFFFFF / Grays)
   const [isLiked, setIsLiked] = useState(Boolean(item.is_liked));
@@ -112,6 +149,18 @@ export function FeedVideoItem({
 
   // Bottom white progress bar animation
   const progressWidth = useSharedValue(0);
+
+  // Shimmer skeleton animation while video WebView is loading
+  const shimmerOpacity = useSharedValue(0.35);
+
+  useEffect(() => {
+    shimmerOpacity.value = withRepeat(
+      withTiming(0.8, { duration: 900, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+    return () => cancelAnimation(shimmerOpacity);
+  }, []);
 
   // Synchronize external mute state
   useEffect(() => {
@@ -299,7 +348,7 @@ export function FeedVideoItem({
     try {
       await Share.share({
         title: item.film_title,
-        message: `Watch "${item.film_title}" (${item.release_year}) official clip on Takilya: https://youtu.be/${item.youtube_video_id}`,
+        message: `Watch "${item.film_title}" (${item.release_year}) official clip on Takilya: https://www.tiktok.com/video/${cleanTikTokId}`,
       });
     } catch {}
   };
@@ -332,11 +381,15 @@ export function FeedVideoItem({
     width: `${progressWidth.value * 100}%`,
   }));
 
+  const animatedShimmerStyle = useAnimatedStyle(() => ({
+    opacity: shimmerOpacity.value,
+  }));
+
   return (
     <View style={[styles.container, { height: itemHeight, width: itemWidth }]}>
-      {/* 1. Edge-to-edge Video Layer */}
+      {/* 1. Edge-to-edge Video Layer (Official TikTok 9:16 Vertical WebView Embed) */}
       <View style={styles.playerContainer} pointerEvents="box-none">
-        {hasPlayerError || !cleanVideoId ? (
+        {hasPlayerError || !cleanTikTokId ? (
           <View style={styles.errorOverlay}>
             {item.poster_url && (
               <Image
@@ -349,7 +402,7 @@ export function FeedVideoItem({
             <View style={styles.errorCard}>
               <Ionicons name="alert-circle-outline" size={40} color="#FFFFFF" />
               <Text style={styles.errorTitle}>Video unavailable</Text>
-              <Text style={styles.errorSub}>The official trailer could not be loaded.</Text>
+              <Text style={styles.errorSub}>The official clip could not be loaded.</Text>
               <View style={styles.errorActionRow}>
                 <Pressable
                   accessibilityRole="button"
@@ -362,79 +415,75 @@ export function FeedVideoItem({
                   style={styles.retryButton}>
                   <Text style={styles.retryButtonText}>Retry</Text>
                 </Pressable>
-                {cleanVideoId ? (
+                {cleanTikTokId ? (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Open trailer on YouTube"
-                    onPress={() => void Linking.openURL(`https://www.youtube.com/watch?v=${cleanVideoId}`)}
-                    style={styles.openYouTubeBtn}>
-                    <Ionicons name="logo-youtube" size={16} color="#FFFFFF" />
-                    <Text style={styles.openYouTubeText}>YouTube</Text>
+                    accessibilityLabel="Open trailer on TikTok"
+                    onPress={() =>
+                      void Linking.openURL(`https://www.tiktok.com/video/${cleanTikTokId}`)
+                    }
+                    style={styles.openPlatformBtn}>
+                    <Ionicons
+                      name="logo-tiktok"
+                      size={16}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.openPlatformText}>TikTok</Text>
                   </Pressable>
                 ) : null}
               </View>
             </View>
           </View>
-        ) : Platform.OS === 'web' ? (
-          <View style={styles.webEmbedWrapper}>
-            <iframe
-              src={`https://www.youtube.com/embed/${cleanVideoId}?autoplay=${
-                isViewable ? 1 : 0
-              }&mute=${isMuted ? 1 : 0}&controls=0&playsinline=1&modestbranding=1&rel=0&enablejsapi=1`}
-              style={{
-                width: '100%',
-                height: '100%',
-                border: 'none',
-              }}
-              title={item.film_title}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            />
-          </View>
         ) : (
           <View style={styles.nativePlayerWrapper}>
-            <YoutubePlayer
-              height={itemHeight}
-              width={itemWidth}
-              play={isViewable && isPlaying}
-              videoId={cleanVideoId}
-              mute={isMuted ?? true}
-              onReady={() => {
-                setReady(true);
-                setHasPlayerError(false);
-              }}
-              viewContainerStyle={{ width: itemWidth, height: itemHeight, backgroundColor: '#000000' }}
-              webViewStyle={{ backgroundColor: '#000000', opacity: 0.99 }}
-              webViewProps={{
-                androidLayerType: 'hardware',
-                allowsInlineMediaPlayback: true,
-                mediaPlaybackRequiresUserAction: false,
-                source: {
-                  baseUrl: 'https://takilya.app',
-                },
-              }}
-              initialPlayerParams={{
-                autoplay: true,
-                preventFullScreen: true,
-                controls: false,
-                modestbranding: true,
-                rel: false,
-                iv_load_policy: 3,
-                showClosedCaptions: false,
-              }}
-              onError={(error: string) => {
-                console.warn(`[YouTube Player Error for ${cleanVideoId}]:`, error);
-                // Only set error if it is an actual unrecoverable embed code (100, 101, 150)
-                if (
-                  error === '100' ||
-                  error === '101' ||
-                  error === '150' ||
-                  error === 'video_not_found' ||
-                  error === 'embed_not_allowed'
-                ) {
+            {isViewable && (
+              <WebView
+                source={{
+                  html: embedHtml,
+                  baseUrl: 'https://www.tiktok.com',
+                }}
+                style={{
+                  flex: 1,
+                  backgroundColor: '#000000',
+                  opacity: 0.99,
+                }}
+                allowsInlineMediaPlayback={true}
+                mediaPlaybackRequiresUserAction={false}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+                androidLayerType="hardware"
+                scrollEnabled={false}
+                bounces={false}
+                onLoadStart={() => setReady(false)}
+                onLoadEnd={() => {
+                  setReady(true);
+                  setHasPlayerError(false);
+                }}
+                onError={(syntheticEvent: any) => {
+                  console.warn(`[TikTok Player Error for ${cleanTikTokId}]:`, syntheticEvent?.nativeEvent);
                   setHasPlayerError(true);
-                }
-              }}
-            />
+                }}
+              />
+            )}
+
+            {/* Loading Shimmer Skeleton while WebView is loading */}
+            {!isReady && !hasPlayerError && (
+              <View style={styles.skeletonContainer} pointerEvents="none">
+                {item.poster_url && (
+                  <Image
+                    source={{ uri: item.poster_url }}
+                    style={styles.fullFill}
+                    resizeMode="cover"
+                    blurRadius={12}
+                  />
+                )}
+                <Animated.View style={[styles.shimmerOverlay, animatedShimmerStyle]}>
+                  <View style={styles.loadingSpinnerContainer}>
+                    <Ionicons name="film-outline" size={32} color="#FFFFFF" style={{ opacity: 0.7 }} />
+                  </View>
+                </Animated.View>
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -1160,18 +1209,50 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 13,
   },
-  openYouTubeBtn: {
+  skeletonContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  shimmerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(20, 20, 20, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingSpinnerContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#141414',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  openPlatformBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     borderColor: 'rgba(255, 255, 255, 0.35)',
     borderWidth: 1,
+    backgroundColor: '#1F1F1F',
     paddingHorizontal: spacing.md,
     minHeight: 44,
     borderRadius: radius.xs,
     justifyContent: 'center',
   },
-  openYouTubeText: {
+  openPlatformText: {
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,

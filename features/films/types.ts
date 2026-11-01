@@ -79,6 +79,9 @@ export interface FilmTrailerItem {
   id: string;
   film_id: string;
   youtube_id: string;
+  tiktok_id?: string | null;
+  video_id?: string;
+  video_platform?: 'tiktok' | 'youtube';
   title: string;
   type: 'official' | 'teaser' | 'clip' | 'behind_the_scenes';
   view_count: number;

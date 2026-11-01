@@ -4,6 +4,9 @@ export interface FeedTrailerItem {
   id: string; // trailer id
   film_id: string;
   youtube_video_id: string;
+  tiktok_video_id?: string | null;
+  video_id?: string;
+  video_platform?: 'tiktok' | 'youtube';
   title: string; // trailer / clip title
   type: 'teaser' | 'official' | 'international' | 'clip' | 'bts';
   view_count: number;

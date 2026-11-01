@@ -247,18 +247,18 @@ values
   ('10101010-0003-0000-0000-000000000000', 2022, 'won', 'film', 'cccccccc-0003-0000-0000-000000000000', 'https://sundance.org')
 on conflict do nothing;
 
--- 10. Trailers & YouTube Embeds
+-- 10. Trailers & Video Embeds (TikTok Vertical 9:16 & Official Clips)
 insert into public.trailers (id, film_id, youtube_id, title, type, posted_by_type, posted_by_id, view_count)
 values
-  ('20202020-0001-0000-0000-000000000000', 'cccccccc-0001-0000-0000-000000000000', 'L_LUpnjgPso', 'Himala 4K Restored Official Heritage Trailer', 'official', 'admin', '11111111-1111-1111-1111-111111111111', 45000),
-  ('20202020-0002-0000-0000-000000000000', 'cccccccc-0003-0000-0000-000000000000', '7lMwbA9bUVo', 'Leonor Will Never Die Official Sundance US Trailer', 'official', 'studio', '44444444-4444-4444-4444-444444444444', 38200),
-  ('20202020-0003-0000-0000-000000000000', 'cccccccc-0004-0000-0000-000000000000', '8b1T8k5qP8A', 'John Denver Trending Cinemalaya Official Clip', 'clip', 'festival', 'dddddddd-0001-0000-0000-000000000000', 19800),
-  ('20202020-0004-0000-0000-000000000000', 'cccccccc-0005-0000-0000-000000000000', 'kJQP7kiw5Fk', 'Cleaners QCinema Coming-of-Age Trailer', 'official', 'admin', '11111111-1111-1111-1111-111111111111', 28500),
-  ('20202020-0005-0000-0000-000000000000', 'cccccccc-0002-0000-0000-000000000000', 'vP88v2B4a_A', 'Maynila sa mga Kuko ng Liwanag World Cinema Project Teaser', 'official', 'admin', '11111111-1111-1111-1111-111111111111', 32400),
-  ('20202020-0006-0000-0000-000000000000', 'cccccccc-0006-0000-0000-000000000000', 'I_tOzY_k34M', 'Heneral Luna Official Epic Theatrical Trailer', 'official', 'studio', '11111111-1111-1111-1111-111111111111', 89000),
-  ('20202020-0007-0000-0000-000000000000', 'cccccccc-0007-0000-0000-000000000000', '1fXn01_FvD0', 'Goyo: Ang Batang Heneral The Young General Official Trailer', 'official', 'studio', '11111111-1111-1111-1111-111111111111', 64200),
-  ('20202020-0009-0000-0000-000000000000', 'cccccccc-0009-0000-0000-000000000000', 'R8tHz3ZgJ4E', 'BuyBust Official Well Go USA Action Trailer', 'official', 'studio', '22222222-2222-2222-2222-222222222222', 54200),
-  ('20202020-0010-0000-0000-000000000000', 'cccccccc-0010-0000-0000-000000000000', 'GSdh2IkQYxC', 'On the Job Cannes Directors Fortnight Official Trailer', 'official', 'studio', '11111111-1111-1111-1111-111111111111', 72000)
+  ('20202020-0001-0000-0000-000000000000', 'cccccccc-0001-0000-0000-000000000000', '7445243271833488648', 'Himala 4K Restored Official Heritage Trailer', 'official', 'admin', '11111111-1111-1111-1111-111111111111', 45000),
+  ('20202020-0002-0000-0000-000000000000', 'cccccccc-0003-0000-0000-000000000000', '7652287895692266769', 'Leonor Will Never Die Official Sundance US Trailer', 'official', 'studio', '44444444-4444-4444-4444-444444444444', 38200),
+  ('20202020-0003-0000-0000-000000000000', 'cccccccc-0004-0000-0000-000000000000', '7684804262509006088', 'John Denver Trending Cinemalaya Official Clip', 'clip', 'festival', 'dddddddd-0001-0000-0000-000000000000', 19800),
+  ('20202020-0004-0000-0000-000000000000', 'cccccccc-0005-0000-0000-000000000000', '7608148655559920917', 'Cleaners QCinema Coming-of-Age Trailer', 'official', 'admin', '11111111-1111-1111-1111-111111111111', 28500),
+  ('20202020-0005-0000-0000-000000000000', 'cccccccc-0002-0000-0000-000000000000', '7445243271833488648', 'Maynila sa mga Kuko ng Liwanag World Cinema Project Teaser', 'official', 'admin', '11111111-1111-1111-1111-111111111111', 32400),
+  ('20202020-0006-0000-0000-000000000000', 'cccccccc-0006-0000-0000-000000000000', '7684804262509006088', 'Heneral Luna Official Epic Theatrical Trailer', 'official', 'studio', '11111111-1111-1111-1111-111111111111', 89000),
+  ('20202020-0007-0000-0000-000000000000', 'cccccccc-0007-0000-0000-000000000000', '7652287895692266769', 'Goyo: Ang Batang Heneral The Young General Official Trailer', 'official', 'studio', '11111111-1111-1111-1111-111111111111', 64200),
+  ('20202020-0009-0000-0000-000000000000', 'cccccccc-0009-0000-0000-000000000000', '7608148655559920917', 'BuyBust Official Well Go USA Action Trailer', 'official', 'studio', '22222222-2222-2222-2222-222222222222', 54200),
+  ('20202020-0010-0000-0000-000000000000', 'cccccccc-0010-0000-0000-000000000000', '7684804262509006088', 'On the Job Cannes Directors Fortnight Official Trailer', 'official', 'studio', '11111111-1111-1111-1111-111111111111', 72000)
 on conflict do nothing;
 
 -- 11. Promoted Slots (clearly marked)

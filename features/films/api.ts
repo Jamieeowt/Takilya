@@ -16,6 +16,8 @@ import {
   computeRecommendations,
   computeSimilarFilms,
 } from './recommendations';
+import { extractYouTubeId } from '@/lib/youtube';
+import { extractTikTokId, detectVideoPlatform } from '@/lib/video';
 
 // ==============================================================================
 // RICH SEED CATALOG FOR PHILIPPINE FILMS (Matches Supabase Seed Data)
@@ -158,7 +160,10 @@ const FALLBACK_FILMS: Record<string, FilmDetailFull> = {
       {
         id: 'tr-1',
         film_id: 'cccccccc-0001-0000-0000-000000000000',
-        youtube_id: 'L_LUpnjgPso',
+        youtube_id: '7445243271833488648',
+        tiktok_id: '7445243271833488648',
+        video_id: '7445243271833488648',
+        video_platform: 'tiktok',
         title: 'Himala 4K Restored Official Heritage Trailer',
         type: 'official',
         view_count: 45000,
@@ -169,7 +174,10 @@ const FALLBACK_FILMS: Record<string, FilmDetailFull> = {
       {
         id: 'tr-2',
         film_id: 'cccccccc-0001-0000-0000-000000000000',
-        youtube_id: '7lMwbA9bUVo',
+        youtube_id: '7445243271833488648',
+        tiktok_id: '7445243271833488648',
+        video_id: '7445243271833488648',
+        video_platform: 'tiktok',
         title: 'Walang Himala Iconic Scene & Bernal Retrospective Clip',
         type: 'clip',
         view_count: 82000,
@@ -364,7 +372,10 @@ const FALLBACK_FILMS: Record<string, FilmDetailFull> = {
       {
         id: 'tr-l-1',
         film_id: 'cccccccc-0003-0000-0000-000000000000',
-        youtube_id: '7lMwbA9bUVo',
+        youtube_id: '7652287895692266769',
+        tiktok_id: '7652287895692266769',
+        video_id: '7652287895692266769',
+        video_platform: 'tiktok',
         title: 'Leonor Will Never Die Official Sundance US Trailer',
         type: 'official',
         view_count: 38200,
@@ -375,7 +386,10 @@ const FALLBACK_FILMS: Record<string, FilmDetailFull> = {
       {
         id: 'tr-l-2',
         film_id: 'cccccccc-0003-0000-0000-000000000000',
-        youtube_id: '7lMwbA9bUVo',
+        youtube_id: '7652287895692266769',
+        tiktok_id: '7652287895692266769',
+        video_id: '7652287895692266769',
+        video_platform: 'tiktok',
         title: 'Making of the Meta Action Climax Featurette',
         type: 'behind_the_scenes',
         view_count: 14500,
@@ -534,7 +548,10 @@ function generateFallbackFilm(filmId: string): FilmDetailFull {
       {
         id: 'tr-fb-1',
         film_id: filmId,
-        youtube_id: '7lMwbA9bUVo',
+        youtube_id: '7652287895692266769',
+        tiktok_id: '7652287895692266769',
+        video_id: '7652287895692266769',
+        video_platform: 'tiktok',
         title: 'Leonor Will Never Die Official Sundance US Trailer',
         type: 'official',
         view_count: 38200,
@@ -832,17 +849,27 @@ export async function fetchFilmDetail(
     }));
 
     // Process trailers
-    const trailers: FilmTrailerItem[] = ((trailersData as any[]) || []).map((t) => ({
-      id: t.id,
-      film_id: t.film_id,
-      youtube_id: t.youtube_id,
-      title: t.title,
-      type: t.type || 'official',
-      view_count: Number(t.view_count) || 0,
-      duration_seconds: t.duration_seconds,
-      is_verified: true,
-      posted_by_name: 'Official Takilya Channel',
-    }));
+    const trailers: FilmTrailerItem[] = ((trailersData as any[]) || []).map((t) => {
+      const rawId = t.tiktok_id || t.youtube_id;
+      const tiktokId = extractTikTokId(rawId);
+      const ytId = extractYouTubeId(t.youtube_id);
+      const platform = detectVideoPlatform(rawId);
+
+      return {
+        id: t.id,
+        film_id: t.film_id,
+        youtube_id: ytId || (t.youtube_id as string),
+        tiktok_id: tiktokId,
+        video_id: tiktokId || ytId || t.youtube_id,
+        video_platform: platform === 'unknown' ? (tiktokId ? 'tiktok' : 'youtube') : platform,
+        title: t.title,
+        type: t.type || 'official',
+        view_count: Number(t.view_count) || 0,
+        duration_seconds: t.duration_seconds,
+        is_verified: true,
+        posted_by_name: 'Official Takilya Channel',
+      };
+    });
 
     // Process reviews
     const reviews: FilmReviewItem[] = ((reviewsData as any[]) || []).map((r) => {
